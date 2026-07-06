@@ -1,0 +1,172 @@
+# RougueChest (working title)
+
+A chess-based strategy game where capturing a piece transitions into an HSR-style turn-based team combat encounter.
+
+---
+
+## 1. Core Concept
+
+- Played on a standard chess board (3D environment).
+- Standard chess movement/rules apply for piece movement and legality (check/checkmate based on legal-move threat, not guaranteed capture).
+- When a capture move is attempted, the game transitions to a separate combat scene (like enemy encounters in Honkai: Star Rail) instead of instantly resolving the capture.
+- Capture outcome is **non-deterministic** — any piece can defeat any piece (a pawn can beat a queen), decided by the combat encounter.
+- Long-term goal: multiplayer support (server-authoritative, since both chess and combat are turn-based).
+
+---
+
+## 2. Architecture Principles
+
+- **Chess logic**, **combat logic**, and **rendering/scene transition** are separate systems communicating through a shared game state / events. This enables:
+  - Unit testing rules without touching 3D scenes.
+  - Clean multiplayer integration later (server holds canonical state; clients send move/skill requests, server validates + broadcasts).
+- Combat scene loads additively (board scene stays loaded), so control returns to the board without a full reload.
+- Turn order in combat should use an **action gauge** (fill-rate based), not a fixed turn queue — needed to support turn-order manipulation effects (e.g., Knight's SPD buff).
+
+---
+
+## 3. Capture / Combat Trigger Flow
+
+1. Player selects a capture move on the board.
+2. Board pauses; eligible allied pieces within a 3x3 area (centered on the attacker) are highlighted.
+3. Player manually selects up to 4 additional pieces to join (max team size = 5, including the attacker).
+4. Same process happens for the defender (their 3x3 area, their pick).
+5. Combat scene runs (see Section 5).
+6. Result:
+   - Attacker wins → defender's piece is captured/removed from the board.
+   - Defender wins → attacker's piece is captured/removed from the board.
+   - Only the original targeted piece is ever removed — team members return to their original board squares regardless of outcome.
+   - If the King is the piece that loses combat, the game ends immediately.
+
+**Open questions (deferred):**
+- Enemy AI / opposing player team selection — manual like the player, or auto-picked for now until AI exists?
+- Does joining a team as support cost that piece its next board turn?
+
+---
+
+## 4. Piece Roles & Combat Kit
+
+Every piece has: **basic attack + one skill + one ultimate**. Effects differ by role:
+
+| Role | Basic Attack | Skill | Ultimate |
+|---|---|---|---|
+| Attack | Yes | Attack skill (single/AoE) | Attack ultimate |
+| Support/Buff | Yes | Buff/heal (single/AoE) | Support ultimate |
+| Defense | Yes | Shield/taunt (adjustable later) | Defensive ultimate |
+
+### Knight — turn manipulation
+- Support-style skill: increases SPD (action gauge fill rate) of a designated ally (single or multiple targets).
+- Can grant an extra turn / advance an ally's turn up in sequence (HSR "Advance Forward" style). Numbers TBD for balance.
+
+### Other pieces (placeholder, to be detailed later)
+- Pawn: simple attack, possible ability on promotion rank.
+- Bishop: ranged/magic-themed.
+- Rook: tanky/defense-themed.
+- Queen: strongest all-rounder, has an ultimate.
+- King: defensive/support-leaning; losing = game over.
+
+---
+
+## 5. Team Combat Rules
+
+- Both attacker and defender bring a team (1–5 pieces) into the encounter.
+- Team selection: **manual**, player picks from the highlighted 3x3-area allies.
+- Combat plays out HSR-style (action-gauge turn order, basic attack/skill/ultimate per piece).
+- Only the original attacker/defender piece can be captured as a result; team members are never removed from the board.
+
+---
+
+## 6. Loadout System — "Cards"
+
+Inspired by Genshin Impact's artifact system.
+
+- Each piece has **5 fixed slots**, each tied to a specific suit:
+
+| Slot | Suit | Main Stat |
+|---|---|---|
+| 1 | Heart | HP |
+| 2 | Diamond | Elemental dmg% OR general stat% (atk/def/heal/buff) — rolled from a pool |
+| 3 | Spade | Attack |
+| 4 | Club | Stat% (atk/def/heal/buff) — rolled from a pool |
+| 5 | Joker | Crit Rate / Crit DMG |
+
+- Piece capacity limits how many slots are unlocked:
+  - **Pawn**: 2 slots unlocked — fixed to Slot 1 (Heart) and Slot 3 (Spade). Cannot complete a 4pc set; 2pc max.
+  - **Queen**: all 5 slots unlocked.
+  - Other pieces: TBD when needed.
+- **Suit vs Set are separate properties**: suit determines which slot a card fits; **Set** determines which bonus family it belongs to, independent of suit. This allows a "4pc Set" bonus using 4 cards of the same Set across 4 different suits/slots.
+- Set bonuses:
+  - **2pc**: moderate buff, from 2 cards of the same Set.
+  - **4pc**: stronger buff, from 4 cards of the same Set (Joker slot free to be anything unless it's part of the set).
+  - **2+2**: two separate 2pc bonuses can be active simultaneously from two different Sets.
+- Crit formula (baseline, adjustable): `final damage = base damage + (base damage * crit damage%)`, triggered probabilistically based on crit rate%.
+- Card acquisition method: **TBD**.
+- Card sub-stats (secondary rolls): **TBD**.
+- Actual Set bonus effects (what each Set does): **TBD**.
+
+---
+
+## 7. Element System
+
+Inspired by Genshin Impact's elemental reaction system. Names are chess-themed (placeholders, open to change).
+
+| Element (internal) | Working Name |
+|---|---|
+| Fire | Gambit |
+| Water | Tempo |
+| Earth | Fortress |
+| Wind | Blitz |
+| Ice | Zugzwang |
+
+### Aura / Tagging Rules
+- A piece hit by an elemental attack gets tagged with that element for a fixed duration (in turns).
+- Hit with a **different** element while tagged → triggers the corresponding reaction, consumes the tag.
+- Hit with the **same** element while tagged → refreshes duration, no reaction.
+- Untouched tag expires after its duration → clears with no reaction.
+- Can a piece hold multiple simultaneous tags, and can reactions leave a residual tag behind? **TBD**.
+
+### Reactions (working names)
+
+| Combo | Effect | Working Name |
+|---|---|---|
+| Gambit + Tempo (Fire + Water) | Increased damage | Check |
+| Gambit + Zugzwang (Fire + Ice) | Damage over time | Endgame |
+| Blitz + any element | AoE damage of the combined element | En Passant |
+| Zugzwang + Tempo (Ice + Water) | Freeze — target skips next turn | Stalemate |
+| Fortress + any element | Elemental shield, applied to the next ally in turn order | Castling |
+
+- Element assignment to pieces: randomized (mechanism TBD).
+- Full complexity (all cross-element combos) can be scoped down if needed — core 5 reactions above are the baseline.
+
+---
+
+## 8. Multiplayer Considerations (future)
+
+- Server-authoritative: server holds canonical board + combat state; clients send move/skill/team-selection requests; server validates and broadcasts results.
+- Turn-based nature (both chess and combat) avoids real-time netcode complexity — no physics sync needed.
+- Keep chess and combat state fully serializable/deterministic from the start to make this addition incremental rather than a rewrite.
+- Team selection (manual pick) must also be a networked, server-validated action.
+
+---
+
+## 9. Reference / Inspiration
+
+- **Archon: The Light and the Dark** (1983) — chess board + real-time combat on capture;
+- **Honkai: Star Rail** — turn-based combat structure (action gauge, basic attack/skill/ultimate, turn advancement).
+- **Genshin Impact** — artifact/set bonus system, elemental reaction system.
+
+---
+
+## 10. Status / Open Decisions Log
+
+- [ ] Team full-combatant balance (attack pieces vs support pieces contribution weighting)
+- [ ] Enemy/AI team selection logic
+- [ ] Card acquisition method
+- [ ] Card sub-stats
+- [ ] Set bonus effects (per Set)
+- [ ] Slot limits for pieces other than Pawn/Queen
+- [ ] Elemental tag duration value, multi-tag handling, residual tags from reactions
+- [ ] Element assignment mechanism (randomization rules)
+- [ ] Piece stat baselines and progression/leveling system
+- [ ] Board layout differences (if any) from standard chess
+
+---
