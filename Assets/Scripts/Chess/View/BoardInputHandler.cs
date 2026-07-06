@@ -22,14 +22,21 @@ namespace Chess.View
             {
                 var piece = boardView.State.Board.Get(clicked);
                 if (piece != null && piece.Color == boardView.State.SideToMove)
+                {
                     selected = clicked;
+                    boardView.UpdateSelectedUI(selected);
+                }
                 return;
             }
 
             if (boardView.State.TryMakeMove(selected.Value, clicked))
+            {
                 boardView.RedrawPieces();
+                boardView.UpdateTurnUI();
+            }
 
             selected = null;
+            boardView.UpdateSelectedUI(null);
         }
     }
 }
