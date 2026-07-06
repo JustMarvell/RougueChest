@@ -20,8 +20,8 @@ namespace Chess.Core
                 case PieceType.Pawn : GeneratePawnMoves(board, from, piece, moves); break;
                 case PieceType.Knight : GenerateOffsetMoves(board, from, piece, KnightOffsets, moves); break;
                 case PieceType.King : GenerateOffsetMoves(board, from, piece, KingOffsets, moves); break;
-                case PieceType.Bishop : GenerateOffsetMoves(board, from, piece, BishopDirs, moves); break;
-                case PieceType.Rook : GenerateOffsetMoves(board, from, piece, RookDirs, moves); break;
+                case PieceType.Bishop : GenerateSlidingMoves(board, from, piece, BishopDirs, moves); break;
+                case PieceType.Rook : GenerateSlidingMoves(board, from, piece, RookDirs, moves); break;
                 case PieceType.Queen :
                     GenerateSlidingMoves(board, from, piece, BishopDirs, moves);
                     GenerateSlidingMoves(board, from, piece, RookDirs, moves);
