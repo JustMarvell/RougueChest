@@ -2,7 +2,7 @@ namespace Chess.Core
 {
     public class Board
     {
-        public readonly Piece[, ] Squares = new Piece[8, 0];
+        public readonly Piece[, ] Squares = new Piece[8, 8];
 
         public Piece Get(Square sq) => Squares[sq.File, sq.Rank];
         public void Set(Square sq, Piece piece) => Squares[sq.File, sq.Rank] = piece;
