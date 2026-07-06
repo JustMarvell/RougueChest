@@ -478,6 +478,22 @@ MonoBehaviour:
   squareSize: 1
   whiteTileMaterial: {fileID: 2100000, guid: 7e9171605095f00f7bb74a21b90e3de1, type: 2}
   blackTileMaterial: {fileID: 2100000, guid: 22d4cae904a91339fbf466d748a5ce87, type: 2}
+  whiteModels:
+    pawn: {fileID: 4706872547172626492, guid: 6ffbdf39a32d44641b5931769b4f7e7f, type: 3}
+    knight: {fileID: 17965092494578636, guid: e7df13b323f03bb4cb0f55abac0e28b6, type: 3}
+    bishop: {fileID: 6327862061878912508, guid: 9df2b8262f4a6ae4b8d6ce0bdaf0246f, type: 3}
+    rook: {fileID: 2442099351644324551, guid: 53634cd0db15f0d4e9a93a5143fa0c16, type: 3}
+    queen: {fileID: 1749374157690589891, guid: c962464fbd3e47e49980791f14612be0, type: 3}
+    king: {fileID: 8743673182277775989, guid: b8e44fa9afe28ce4d91df9a469971da9, type: 3}
+  blackModels:
+    pawn: {fileID: 698121836411348812, guid: 0d779c95adba1194db0f938a4a6a3339, type: 3}
+    knight: {fileID: 58710317665407305, guid: a82e2142d3f9fb446b84b73cbce6b1cd, type: 3}
+    bishop: {fileID: 2977284409349619188, guid: d6b4fe78d8cf0324db86ec7c489c0cd6, type: 3}
+    rook: {fileID: 3166511139309157846, guid: 06df79f9580dd6044806754a0b964581, type: 3}
+    queen: {fileID: 6499197578323015342, guid: 2b483b4f5bc08064d9b617a6c9f4fee3, type: 3}
+    king: {fileID: 1249996722537591641, guid: 5948213c1fad03d4f851b5d316d3cfe9, type: 3}
+  pieceScale: 1
+  pieceYOffset: 0
 --- !u!4 &1643385889
 Transform:
   m_ObjectHideFlags: 0
