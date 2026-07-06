@@ -3,11 +3,33 @@ using Chess.Core;
 
 namespace Chess.View
 {
+    [System.Serializable]
+    public class PieceModelSet
+    {
+        public GameObject pawn, knight, bishop, rook, queen, king;
+
+        public GameObject Get(PieceType type) => type switch
+        {
+            PieceType.Pawn => pawn,
+            PieceType.Knight => knight,
+            PieceType.Bishop => bishop,
+            PieceType.Rook => rook,
+            PieceType.Queen => queen,
+            PieceType.King => king,
+            _ => null
+        };
+    }
+
     public class BoardView : MonoBehaviour
     {
         public float squareSize = 1f;
         public Material whiteTileMaterial;
         public Material blackTileMaterial;
+        public PieceModelSet whiteModels;
+        public PieceModelSet blackModels;
+        public float pieceScale = 1f;
+        public float pieceYOffset = 0f;
+
         public GameState State { get; private set; }
         GameObject[, ] pieceObjects = new GameObject[8, 8];
 
@@ -62,13 +84,26 @@ namespace Chess.View
                     var piece = State.Board.Squares[f, r];
                     if (piece == null) continue;
 
-                    var primitive = piece.Type == PieceType.King ? PrimitiveType.Cylinder : PrimitiveType.Capsule;
-                    var obj = GameObject.CreatePrimitive(primitive);
+                    var modelSet = piece.Color == PieceColor.White ? whiteModels : blackModels;
+                    var prefab = modelSet?.Get(piece.Type);
+
+                    GameObject obj;
+                    if (prefab != null)
+                    {
+                        obj = Instantiate(prefab, transform);
+                        obj.transform.localScale *= pieceScale;
+                    }
+                    else
+                    {
+                        var primitive = piece.Type == PieceType.King ? PrimitiveType.Cylinder : PrimitiveType.Capsule;
+                        obj = GameObject.CreatePrimitive(primitive);
+                        obj.transform.SetParent(transform);
+                        obj.transform.localScale = new Vector3(0.6f, piece.Type == PieceType.Pawn ? 0.4f : 0.6f, 0.6f);
+                        obj.GetComponent<Renderer>().material.color = piece.Color == PieceColor.White ? Color.white : Color.gray;
+                    }
+
                     obj.name = $"{piece.Color}_{piece.Type}_{f}_{r}";
-                    obj.transform.SetParent(transform);
-                    obj.transform.localPosition = SquareToWorld(new Square(f, r)) + Vector3.up * 0.5f;
-                    obj.transform.localScale = new Vector3(0.6f, piece.Type == PieceType.Pawn ? 0.4f : 0.6f, 0.6f);
-                    obj.GetComponent<Renderer>().material.color = piece.Color == PieceColor.White ? Color.white : Color.gray;
+                    obj.transform.localPosition = SquareToWorld(new Square(f, r)) + Vector3.up * pieceYOffset;
                     obj.AddComponent<PieceView>().Square = new Square(f, r);
                     pieceObjects[f, r] = obj;
                 }
