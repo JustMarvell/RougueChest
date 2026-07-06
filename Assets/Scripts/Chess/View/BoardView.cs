@@ -53,7 +53,7 @@ namespace Chess.View
             UpdateTurnUI();
         }
 
-        void UpdateTurnUI()
+        public void UpdateTurnUI()
         {
             if (turnIndicator != null)
             {
