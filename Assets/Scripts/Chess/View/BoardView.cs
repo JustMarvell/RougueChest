@@ -1,5 +1,6 @@
 using UnityEngine;
 using Chess.Core;
+using TMPro;
 
 namespace Chess.View
 {
@@ -30,6 +31,11 @@ namespace Chess.View
         public float pieceScale = 1f;
         public float pieceYOffset = 0f;
 
+        [Space]
+
+        public TextMeshProUGUI turnIndicator;
+        public TextMeshProUGUI selectedPieceIndicator;
+
         public GameState State { get; private set; }
         GameObject[, ] pieceObjects = new GameObject[8, 8];
 
@@ -44,6 +50,38 @@ namespace Chess.View
         {
             BuildTiles();
             RedrawPieces();
+            UpdateTurnUI();
+        }
+
+        void UpdateTurnUI()
+        {
+            if (turnIndicator != null)
+            {
+                string color = State.SideToMove == PieceColor.White ? "<color=white>White</color>" : "<color=black>Black</color>";
+                turnIndicator.text = $"{color}'s Turn";
+            }
+        }
+
+        public void UpdateSelectedUI(Square? selectedSquare)
+        {
+            if (selectedPieceIndicator == null) return;
+
+            if (selectedSquare == null || !selectedSquare.Value.IsValid)
+            {
+                selectedPieceIndicator.text = "Selected: None";
+                return;
+            }
+
+            var piece = State.Board.Get(selectedSquare.Value);
+            if (piece != null)
+            {
+                string colorStr = piece.Color == PieceColor.White ? "White" : "Black";
+                selectedPieceIndicator.text = $"Selected: {colorStr} {piece.Type}";
+            }
+            else
+            {
+                selectedPieceIndicator.text = "Selected: None";
+            }
         }
 
         void BuildTiles()
