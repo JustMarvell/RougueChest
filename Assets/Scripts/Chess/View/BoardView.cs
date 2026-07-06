@@ -42,8 +42,12 @@ namespace Chess.View
         void Awake()
         {
             State = new GameState();
-            // temporary autoresolver until real combat implemented
-            State.OnCaptureTriggered += (from, to) => State.ResolveCapture(Random.value > 0.5f);
+            
+            State.OnCaptureTriggered += (from, to) =>
+            {
+                bool attackerWon = Combat.Integration.CaptureCombatResolver.ResolveCapture(State.Board, from, to);
+                State.ResolveCapture(attackerWon);
+            };
         }
 
         void Start()
