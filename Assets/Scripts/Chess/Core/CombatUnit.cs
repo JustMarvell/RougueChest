@@ -64,6 +64,9 @@ namespace Chess.Core
             var clone = new CombatUnit(Name, Team, MaxHP, Attack, Speed);
             clone.CurrentHP = CurrentHP;
             clone.IsFrozen = IsFrozen;
+            clone.Energy = Energy;
+            clone.MaxEnergy = MaxEnergy;
+            clone.Kit = Kit;
             return clone;
         }
     }
