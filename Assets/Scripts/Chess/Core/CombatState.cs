@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chess.Core;
-using NUnit.Framework;
-using UnityEngine.Rendering;
 
 namespace Combat.Core
 {
@@ -14,10 +12,6 @@ namespace Combat.Core
         DefenderWon
     }
 
-    // Mirrors Chess.Core.GameState: owns the canonical combat state and fires
-    // events for the View layer to react to. Basic-attack only for now - no
-    // skills, ultimates, elements, or cards. Once this loop is solid, those
-    // become content layered on top rather than changes to this structure.
     public class CombatState
     {
         public readonly TurnOrderService TurnOrder = new TurnOrderService();
@@ -25,25 +19,39 @@ namespace Combat.Core
         public List<CombatUnit> DefenderTeam = new List<CombatUnit>();
         public CombatOutcome Outcome = CombatOutcome.None;
 
+        ICombatDecisionProvider attackerProvider;
+        ICombatDecisionProvider defenderProvider;
+
         public event Action<CombatUnit> OnUnitTurnStart;
-        public event Action<CombatUnit, CombatUnit, int> OnDamageDealt; // attacker, target, amount
+        public event Action<CombatUnit, CombatUnit, int> OnDamageDealt;
         public event Action<CombatUnit> OnUnitDefeated;
         public event Action<CombatOutcome> OnCombatEnd;
 
-        public void Setup(List<CombatUnit> attackers, List<CombatUnit> defenders)
+        public void Setup(
+            List<CombatUnit> attackers,
+            List<CombatUnit> defenders,
+            ICombatDecisionProvider attackerProvider,
+            ICombatDecisionProvider defenderProvider)
         {
             AttackerTeam = attackers;
             DefenderTeam = defenders;
+            this.attackerProvider = attackerProvider;
+            this.defenderProvider = defenderProvider;
             Outcome = CombatOutcome.None;
 
             foreach (var u in AttackerTeam) TurnOrder.Register(u);
             foreach (var u in DefenderTeam) TurnOrder.Register(u);
         }
 
-        // Advances combat by exactly one unit's action. The view layer (or a
-        // test) calls this in a loop, one call per turn, so animation/pacing
-        // can sit between calls without the core needing to know about time.
-        public void RunNextTurn()
+        // Starts the encounter. From here combat drives itself turn-by-turn
+        // through provider callbacks - no external while loop needed (or
+        // possible, since a real player's decision can take many frames).
+        public void Begin()
+        {
+            AdvanceTurn();
+        }
+
+        void AdvanceTurn()
         {
             if (Outcome != CombatOutcome.None) return;
 
@@ -55,11 +63,7 @@ namespace Combat.Core
 
                 if (actor.IsFrozen)
                 {
-                    // Stalemate (Zugzwang + Tempo): consume the freeze and skip
-                    // this action entirely. PopNextActor already rescheduled
-                    // this unit's next AV interval, so "skipping" costs nothing
-                    // extra here - we just loop and pop whoever's next.
-                    actor.IsFrozen = false;
+                    actor.IsFrozen = false; // Stalemate placeholder: consume freeze, skip this action
                     continue;
                 }
 
@@ -68,29 +72,35 @@ namespace Combat.Core
 
             OnUnitTurnStart?.Invoke(actor);
 
-            var target = PickTarget(actor);
-            if (target == null) { CheckForWinner(); return; }
+            var provider = GetProviderFor(actor);
+            provider.RequestAction(actor, this, action => ResolveAction(actor, action));
+        }
 
-            int damage = actor.Attack; // baseline - no crit/elements/skills yet
-            target.TakeDamage(damage);
-            OnDamageDealt?.Invoke(actor, target, damage);
+        ICombatDecisionProvider GetProviderFor(CombatUnit actor) =>
+            actor.Team == CombatTeam.Attacker ? attackerProvider : defenderProvider;
 
-            if (target.IsDefeated)
+        // Basic-attack-only resolution for now - Skill/Ultimate branch by
+        // action.Type comes once those exist (Section 4 of the design doc).
+        void ResolveAction(CombatUnit actor, CombatAction action)
+        {
+            foreach (var target in action.Targets)
             {
-                OnUnitDefeated?.Invoke(target);
-                TurnOrder.Remove(target);
+                if (target == null || target.IsDefeated) continue;
+
+                int damage = actor.Attack;
+                target.TakeDamage(damage);
+                OnDamageDealt?.Invoke(actor, target, damage);
+
+                if (target.IsDefeated)
+                {
+                    OnUnitDefeated?.Invoke(target);
+                    TurnOrder.Remove(target);
+                }
             }
 
             CheckForWinner();
-        }
-
-        // Simplest possible targeting: first living enemy. Fine for proving
-        // the loop; real targeting (lowest HP, taunt/shield redirects, AoE)
-        // comes with skills later.
-        CombatUnit PickTarget(CombatUnit actor)
-        {
-            var enemyTeam = actor.Team == CombatTeam.Attacker ? DefenderTeam : AttackerTeam;
-            return enemyTeam.FirstOrDefault(u => !u.IsDefeated);
+            if (Outcome == CombatOutcome.None)
+                AdvanceTurn();
         }
 
         void CheckForWinner()
