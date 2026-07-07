@@ -33,6 +33,8 @@ namespace Combat.Integration
             var kit = DefaultCombatKits.Get(piece.Type);
 
             var unit = new CombatUnit($"{piece.Color}_{piece.Type}", team, s.HP, s.Attack, s.Speed);
+            unit.Color = piece.Color;
+            unit.PieceType = piece.Type;
             unit.Kit = kit;
             unit.MaxEnergy = kit.MaxEnergy;
             return unit;

@@ -38,7 +38,7 @@ namespace Chess.Core
 
         public bool IsDefeated => CurrentHP <= 0;
 
-        public CombatUnit(string name, CombatTeam team, int maxHp, int attack, int speed, PieceColor color, PieceType pieceType)
+        public CombatUnit(string name, CombatTeam team, int maxHp, int attack, int speed)
         {
             Name = name;
             Team = team;
@@ -46,8 +46,6 @@ namespace Chess.Core
             CurrentHP = maxHp;
             Attack = attack;
             Speed = speed;
-            Color = color;
-            PieceType = pieceType;
         }
 
         public void TakeDamage(int amount)
@@ -69,14 +67,12 @@ namespace Chess.Core
 
         public CombatUnit Clone()
         {
-            var clone = new CombatUnit(Name, Team, MaxHP, Attack, Speed, Color, PieceType);
+            var clone = new CombatUnit(Name, Team, MaxHP, Attack, Speed);
             clone.CurrentHP = CurrentHP;
             clone.IsFrozen = IsFrozen;
             clone.Energy = Energy;
             clone.MaxEnergy = MaxEnergy;
             clone.Kit = Kit;
-            clone.Color = Color;
-            clone.PieceType = PieceType;
             return clone;
         }
     }
