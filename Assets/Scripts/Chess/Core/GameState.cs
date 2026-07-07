@@ -1,4 +1,5 @@
 using System;
+using Combat.Core;
 
 namespace Chess.Core
 {
@@ -9,6 +10,14 @@ namespace Chess.Core
         public Board Board;
         public PieceColor SideToMove = PieceColor.White;
         public GameStatus Status = GameStatus.Ongoing;
+
+        // Persists for the WHOLE match, across every capture encounter.
+        // Starts at 2 for the very first battle only, per design; every
+        // subsequent encounter just reads/writes whatever these already are.
+        public readonly SkillPointPool WhiteSP = new SkillPointPool(startingValue: 2);
+        public readonly SkillPointPool BlackSP = new SkillPointPool(startingValue: 2);
+
+        public SkillPointPool GetSPPool(PieceColor color) => color == PieceColor.White ? WhiteSP : BlackSP;
 
         public event Action<Square, Square> OnCaptureTriggered;
         public event Action<PieceColor> OnCheckmate;
