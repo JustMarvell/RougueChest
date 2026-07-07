@@ -23,6 +23,7 @@ namespace Chess.View
 
         public CombatView combatView;
         public CombatStageController combatStage;
+        public COmbatCameraController cameraController;
 
         [Space]
 
@@ -115,11 +116,18 @@ namespace Chess.View
                 State.ResolveCapture(attackerWon);
                 RedrawPieces();
                 UpdateTurnUI();
+
+                cameraController?.ExitCombatView();
             });
+            
+            combatStage?.Bind(combat);
+
+            if (cameraController != null)
+                cameraController.EnterCombatView(() => combat.Begin());
+            else
+                combat.Begin();
 
             combatView.Bind(combat, attackerProvider, defenderProvider);
-            combatStage?.Bind(combat);
-            combat.Begin();
         }
 
         public void RefreshSelectionHighlights()
