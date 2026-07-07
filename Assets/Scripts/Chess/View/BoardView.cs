@@ -1,6 +1,8 @@
 using UnityEngine;
 using Chess.Core;
 using TMPro;
+using Combat.Selection;
+using Combat.Integration;
 
 namespace Chess.View
 {
@@ -36,8 +38,21 @@ namespace Chess.View
         public TextMeshProUGUI turnIndicator;
         public TextMeshProUGUI selectedPieceIndicator;
 
+        // Placeholder highlight colors - swap for a real outline/decal system later.
+        static readonly Color EligibleHighlight = new Color(0.3f, 0.9f, 0.4f);
+        static readonly Color PickedHighlight = new Color(0.95f, 0.85f, 0.2f);
+        static readonly Color OriginHighlight = new Color(0.9f, 0.3f, 0.3f);
+
         public GameState State { get; private set; }
+
+        // Non-null exactly while a capture's team-selection flow is in progress.
+        // BoardInputHandler checks this (via State.Status == AwaitingCombat) to
+        // know whether clicks should go to selection instead of normal moves.
+        public CaptureTeamSelection ActiveSelection { get; private set; }
+
         GameObject[, ] pieceObjects = new GameObject[8, 8];
+        GameObject[, ] tileObjects = new GameObject[8, 8];
+        Color[, ] tileBaseColors = new Color[8, 8];
 
         void Awake()
         {
@@ -45,8 +60,8 @@ namespace Chess.View
             
             State.OnCaptureTriggered += (from, to) =>
             {
-                bool attackerWon = Combat.Integration.CaptureCombatResolver.ResolveCapture(State.Board, from, to);
-                State.ResolveCapture(attackerWon);
+                ActiveSelection = new CaptureTeamSelection(State.Board, from, to);
+                RefreshSelectionHighlights();
             };
         }
 
@@ -86,6 +101,57 @@ namespace Chess.View
             {
                 selectedPieceIndicator.text = "Selected: None";
             }
+        }
+
+        // Called by BoardInputHandler once ActiveSelection.IsReady - both
+        // phases confirmed, teams locked in. Runs the headless combat and
+        // feeds the result back into GameState exactly like the old
+        // single-piece placeholder did.
+        public void ResolveActiveSelection()
+        {
+            if (ActiveSelection == null || !ActiveSelection.IsReady) return;
+
+            bool attackerWon = CaptureCombatResolver.ResolveCapture(State.Board, ActiveSelection);
+            ActiveSelection = null;
+            ClearSelectionHighlights();
+
+            State.ResolveCapture(attackerWon);
+            RedrawPieces();
+            UpdateTurnUI();
+        }
+
+        public void RefreshSelectionHighlights()
+        {
+            ClearSelectionHighlights();
+            if (ActiveSelection == null) return;
+
+            foreach (var sq in ActiveSelection.CurrentEligible)
+            {
+                SetTileColor(sq, EligibleHighlight);
+            }
+
+            foreach (var sq in ActiveSelection.CurrentPicked)
+            {
+                SetTileColor(sq, PickedHighlight);
+            }
+
+            SetTileColor(ActiveSelection.CurrentOrigin, OriginHighlight);
+        }
+
+        public void ClearSelectionHighlights()
+        {
+            for (int f = 0; f < 8; f++)
+            {
+                for (int r = 0; r < 8; r++)
+                {
+                    tileObjects[f, r].GetComponent<Renderer>().material.color = tileBaseColors[f, r];
+                }
+            }
+        }
+
+        void SetTileColor(Square sq, Color color)
+        {
+            tileObjects[sq.File, sq.Rank].GetComponent<Renderer>().material.color = color;
         }
 
         void BuildTiles()

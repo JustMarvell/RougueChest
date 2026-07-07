@@ -18,6 +18,12 @@ namespace Chess.View
             var clicked = boardView.WorldToSquare(hit.point);
             if (!clicked.IsValid) return;
 
+            if (boardView.State.Status == GameStatus.AwaitingCombat)
+            {
+                HandleSelectionClick(clicked);
+                return;
+            }
+
             if (selected == null)
             {
                 var piece = boardView.State.Board.Get(clicked);
@@ -38,5 +44,26 @@ namespace Chess.View
             selected = null;
             boardView.UpdateSelectedUI(null);
         }
+
+        // Clicking the mandatory piece (the attacker or defender itself)
+        // confirms the current phase's picks and advances to the next step -
+        // no separate UI button needed for the prototype. Clicking any other
+        // eligible square toggles it on/off the current phase's team.
+        void HandleSelectionClick(Square clicked)
+        {
+            var selection = boardView.ActiveSelection;
+            if (selection == null) return;
+
+            if (clicked == selection.CurrentOrigin)
+                selection.ConfirmCurrentPhase();
+            else
+                selection.TogglePick(clicked);
+
+            boardView.RefreshSelectionHighlights();
+
+            if (selection.IsReady)
+                boardView.ResolveActiveSelection();
+        }
+
     }
 }
