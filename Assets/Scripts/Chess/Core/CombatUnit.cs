@@ -12,6 +12,12 @@ namespace Chess.Core
     {
         public string Name;
         public CombatTeam Team;
+
+        // needed by the 3D stage to pick the right visual (mesh today,
+        // maybe a custom equipped character later). Not used by combat math at all.
+        public PieceColor Color;
+        public PieceType PieceType;
+
         public int MaxHP;
         public int CurrentHP;
         public int Attack;
@@ -32,7 +38,7 @@ namespace Chess.Core
 
         public bool IsDefeated => CurrentHP <= 0;
 
-        public CombatUnit(string name, CombatTeam team, int maxHp, int attack, int speed)
+        public CombatUnit(string name, CombatTeam team, int maxHp, int attack, int speed, PieceColor color, PieceType pieceType)
         {
             Name = name;
             Team = team;
@@ -40,6 +46,8 @@ namespace Chess.Core
             CurrentHP = maxHp;
             Attack = attack;
             Speed = speed;
+            Color = color;
+            PieceType = pieceType;
         }
 
         public void TakeDamage(int amount)
@@ -61,12 +69,14 @@ namespace Chess.Core
 
         public CombatUnit Clone()
         {
-            var clone = new CombatUnit(Name, Team, MaxHP, Attack, Speed);
+            var clone = new CombatUnit(Name, Team, MaxHP, Attack, Speed, Color, PieceType);
             clone.CurrentHP = CurrentHP;
             clone.IsFrozen = IsFrozen;
             clone.Energy = Energy;
             clone.MaxEnergy = MaxEnergy;
             clone.Kit = Kit;
+            clone.Color = Color;
+            clone.PieceType = PieceType;
             return clone;
         }
     }
