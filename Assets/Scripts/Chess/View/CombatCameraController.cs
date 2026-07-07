@@ -11,7 +11,7 @@ namespace Chess.View
     // button - White/Black/Top/Left/Right - was last pressed) and restores
     // exactly that pose when combat ends, rather than snapping to a fixed
     // "chess mode" position.
-    public class COmbatCameraController : MonoBehaviour
+    public class CombatCameraController : MonoBehaviour
     {
         public Camera targetCamera;
         public Transform combatCameraAnchor;

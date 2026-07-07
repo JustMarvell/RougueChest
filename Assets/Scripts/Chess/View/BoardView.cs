@@ -23,7 +23,7 @@ namespace Chess.View
 
         public CombatView combatView;
         public CombatStageController combatStage;
-        public COmbatCameraController cameraController;
+        public CombatCameraController cameraController;
 
         [Space]
 
@@ -119,7 +119,7 @@ namespace Chess.View
 
                 cameraController?.ExitCombatView();
             });
-            
+
             combatStage?.Bind(combat);
 
             if (cameraController != null)
