@@ -5,6 +5,7 @@ using Combat.Integration;
 using TMPro;
 using Combat.Core;
 using Chess.Integration;
+using Combat.View;
 
 namespace Chess.View
 {
@@ -34,6 +35,10 @@ namespace Chess.View
         public PieceModelSet blackModels;
         public float pieceScale = 1f;
         public float pieceYOffset = 0f;
+
+        [Space]
+
+        public CombatView combatView;
 
         [Space]
 
@@ -112,15 +117,16 @@ namespace Chess.View
             
             var attackerProvider = new PlayerDecisionProvider();
             var defenderProvider = new PlayerDecisionProvider();
-            // TODO: hand these providers to a CombatView/CombatInputHandler so
-            // SubmitAction gets called from real player input instead of hanging.
 
             var selection = ActiveSelection;
             ActiveSelection = null;
             ClearSelectionHighlights();
 
+            combatView.gameObject.SetActive(true);
+
             CaptureCombatResolver.ResolveCapture(State.Board, selection, attackerProvider, defenderProvider, attackerWon =>
             {
+                combatView.gameObject.SetActive(false);
                 State.ResolveCapture(attackerWon);
                 RedrawPieces();
                 UpdateTurnUI();
