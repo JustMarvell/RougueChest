@@ -30,7 +30,12 @@ namespace Combat.Integration
         public static CombatUnit Create(Piece piece, CombatTeam team)
         {
             var s = baseline[piece.Type];
-            return new CombatUnit($"{piece.Color}_{piece.Type}", team, s.HP, s.Attack, s.Speed);
+            var kit = DefaultCombatKits.Get(piece.Type);
+
+            var unit = new CombatUnit($"{piece.Color}_{piece.Type}", team, s.HP, s.Attack, s.Speed);
+            unit.Kit = kit;
+            unit.MaxEnergy = kit.MaxEnergy;
+            return unit;
         }
     }
 }
