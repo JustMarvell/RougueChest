@@ -21,6 +21,15 @@ namespace Combat.View
 
         [Header("Action UI")]
         public Button basicAttackButton;
+        public Button skillButton;
+        public Button ultimateButton;
+
+        // Optional - if left unassigned, CombatView just skips updating them.
+        // Lets you wire these up incrementally in the Inspector without
+        // breaking anything that's already working.
+        public TextMeshProUGUI skillButtonLabel;
+        public TextMeshProUGUI ultimateButtonLabel;
+        public TextMeshProUGUI spLabel;
         public TextMeshProUGUI promptLabel;
 
         CombatState state;
@@ -32,6 +41,7 @@ namespace Combat.View
 
         CombatUnit currentActor;
         PlayerDecisionProvider pendingProvider;
+        AbilityDefinition pendingAbility;
         bool awaitingTarget;
 
         public void Bind(CombatState combatState, PlayerDecisionProvider attacker, PlayerDecisionProvider defender)
@@ -42,6 +52,7 @@ namespace Combat.View
 
             state.OnUnitTurnStart += HandleUnitTurnStart;
             state.OnDamageDealt += HandleDamageDealt;
+            state.OnHealDealt += HandleHealDealt;
             state.OnUnitDefeated += HandleUnitDefeated;
             state.OnCombatEnd += HandleCombatEnd;
 
@@ -51,7 +62,10 @@ namespace Combat.View
             BuildTeamBars(state.AttackerTeam, attackerBarContainer);
             BuildTeamBars(state.DefenderTeam, defenderBarContainer);
 
-            basicAttackButton.onClick.AddListener(OnBasicAttackClicked);
+            if (basicAttackButton != null) basicAttackButton.onClick.AddListener(OnBasicAttackClicked);
+            if (skillButton != null) skillButton.onClick.AddListener(OnSkillClicked);
+            if (ultimateButton != null) ultimateButton.onClick.AddListener(OnUltimateClicked);
+
             SetActionUIVisible(false);
         }
 
@@ -70,8 +84,9 @@ namespace Combat.View
         {
             currentActor = actor;
             RefreshTurnRail();
+            RefreshActionButtons();
 
-            foreach(var kv in unitEntries)
+            foreach (var kv in unitEntries)
                 kv.Value.SetHighlighted(kv.Key == actor);
         }
 
@@ -89,48 +104,117 @@ namespace Combat.View
             }
         }
 
+        // ---- Action buttons ----
+
         void OnBasicAttackClicked()
         {
-            if (pendingProvider == null || currentActor == null) return;
+            if (pendingProvider == null || currentActor?.Kit?.Basic == null) return;
+            BeginTargeting(currentActor.Kit.Basic);
+        }
 
-            awaitingTarget = true;
-            SetPrompt("Select a Target");
+        void OnSkillClicked()
+        {
+            if (pendingProvider == null || currentActor?.Kit?.Skill == null) return;
 
-            var enemies = CombatTargeting.GetLivingEnemies(currentActor, state);
-            foreach (var enemy in enemies)
-                unitEntries[enemy].SetTargetable(true);
+            var ability = currentActor.Kit.Skill;
+            var sp = state.GetSPPool(currentActor.Team);
+            if (!sp.CanAfford(ability.SPCost))
+            {
+                SetPrompt("Not enough Skill Points");
+                return;
+            }
+
+            BeginTargeting(ability);
+        }
+
+        void OnUltimateClicked()
+        {
+            if (pendingProvider == null || currentActor?.Kit?.Ultimate == null) return;
+
+            if (!currentActor.UltimateReady)
+            {
+                SetPrompt("Ultimate not ready yet");
+                return;
+            }
+
+            BeginTargeting(currentActor.Kit.Ultimate);
+        }
+
+        // Routes to the right targeting flow based on the ability's
+        // TargetType. Single-target abilities wait for a click; AoE/Self
+        // abilities resolve their target list immediately and submit.
+        void BeginTargeting(AbilityDefinition ability)
+        {
+            pendingAbility = ability;
+
+            switch (ability.TargetType)
+            {
+                case TargetType.SingleEnemy:
+                    awaitingTarget = true;
+                    SetPrompt($"{currentActor.Name}: Select a Target");
+                    foreach (var enemy in CombatTargeting.GetLivingEnemies(currentActor, state))
+                        unitEntries[enemy].SetTargetable(true);
+                    break;
+
+                case TargetType.SingleAlly:
+                    awaitingTarget = true;
+                    SetPrompt($"{currentActor.Name}: Select an Ally");
+                    foreach (var ally in CombatTargeting.GetLivingAllies(currentActor, state))
+                        unitEntries[ally].SetTargetable(true);
+                    break;
+
+                case TargetType.AllEnemies:
+                    ConfirmAction(ability, CombatTargeting.GetLivingEnemies(currentActor, state));
+                    break;
+
+                case TargetType.AllAllies:
+                    ConfirmAction(ability, CombatTargeting.GetLivingAllies(currentActor, state));
+                    break;
+
+                case TargetType.Self:
+                    ConfirmAction(ability, new List<CombatUnit> { currentActor });
+                    break;
+            }
         }
 
         void HandleUnitEntryClicked(CombatUnit clicked)
         {
-            if (!awaitingTarget || pendingProvider == null || clicked.IsDefeated) return;
+            if (!awaitingTarget || pendingAbility == null || clicked.IsDefeated) return;
+            ConfirmAction(pendingAbility, new List<CombatUnit> { clicked });
+        }
+
+        void ConfirmAction(AbilityDefinition ability, List<CombatUnit> targets)
+        {
+            if (pendingProvider == null) return;
 
             ClearTargetableState();
             awaitingTarget = false;
+            pendingAbility = null;
             SetActionUIVisible(false);
 
             var provider = pendingProvider;
             pendingProvider = null;
-            provider.SubmitAction(new CombatAction
-            {
-                Ability = currentActor.Kit.Basic,
-                Targets = new List<CombatUnit> { clicked }
-            });
+            provider.SubmitAction(new CombatAction { Ability = ability, Targets = targets });
         }
 
         void HandleDecisionNeeded(CombatUnit actor, CombatState _)
         {
-            // Fires synchronously from inside RequestAction - exactly when a
-            // provider needs player input. A future AIDecisionProvider simply
-            // wouldn't raise this event at all, so the action UI never appears
-            // on AI turns without CombatView needing to know or care why.
             var provider = actor.Team == CombatTeam.Attacker ? attackerProvider : defenderProvider;
             pendingProvider = provider;
+            RefreshActionButtons();
             SetActionUIVisible(true);
             SetPrompt($"{actor.Name}'s turn - choose an action");
         }
 
+        // ---- Event handlers ----
+
         void HandleDamageDealt(CombatUnit attacker, CombatUnit target, int amount)
+        {
+            if (unitEntries.TryGetValue(target, out var entry))
+                entry.RefreshHP();
+        }
+
+        void HandleHealDealt(CombatUnit healer, CombatUnit target, int amount)
         {
             if (unitEntries.TryGetValue(target, out var entry))
                 entry.RefreshHP();
@@ -151,6 +235,41 @@ namespace Combat.View
             SetPrompt(outcome == CombatOutcome.AttackerWon ? "Attacker Wins!" : "Defender Wins!");
         }
 
+        // ---- UI helpers ----
+
+        // Updates interactability + labels for all three buttons based on
+        // the current actor's kit, SP pool, and Energy - called whenever the
+        // acting unit changes or a decision is about to be requested.
+        void RefreshActionButtons()
+        {
+            if (currentActor == null) return;
+
+            var kit = currentActor.Kit;
+            var sp = state.GetSPPool(currentActor.Team);
+
+            if (basicAttackButton != null)
+                basicAttackButton.interactable = kit?.Basic != null;
+
+            if (skillButton != null)
+            {
+                bool canUseSkill = kit?.Skill != null && sp.CanAfford(kit.Skill.SPCost);
+                skillButton.interactable = canUseSkill;
+                if (skillButtonLabel != null && kit?.Skill != null)
+                    skillButtonLabel.text = $"{kit.Skill.DisplayName}\n({kit.Skill.SPCost} SP)";
+            }
+
+            if (ultimateButton != null)
+            {
+                bool canUseUlt = kit?.Ultimate != null && currentActor.UltimateReady;
+                ultimateButton.interactable = canUseUlt;
+                if (ultimateButtonLabel != null && kit?.Ultimate != null)
+                    ultimateButtonLabel.text = $"{kit.Ultimate.DisplayName}\n({currentActor.Energy}/{currentActor.MaxEnergy})";
+            }
+
+            if (spLabel != null)
+                spLabel.text = $"SP: {sp.Current}/{SkillPointPool.Max}";
+        }
+
         void ClearTargetableState()
         {
             foreach (var kv in unitEntries)
@@ -160,6 +279,8 @@ namespace Combat.View
         void SetActionUIVisible(bool visible)
         {
             if (basicAttackButton != null) basicAttackButton.gameObject.SetActive(visible);
+            if (skillButton != null) skillButton.gameObject.SetActive(visible);
+            if (ultimateButton != null) ultimateButton.gameObject.SetActive(visible);
         }
 
         void SetPrompt(string text)

@@ -11,5 +11,11 @@ namespace Combat.Core
 
         public static List<CombatUnit> GetLivingEnemies(CombatUnit actor, CombatState state) =>
             GetEnemyTeam(actor, state).Where(u => !u.IsDefeated).ToList();
+
+        public static List<CombatUnit> GetAllyTeam(CombatUnit actor, CombatState state) =>
+            actor.Team == CombatTeam.Attacker ? state.AttackerTeam : state.DefenderTeam;
+
+        public static List<CombatUnit> GetLivingAllies(CombatUnit actor, CombatState state) =>
+            GetAllyTeam(actor, state).Where(u => !u.IsDefeated).ToList();
     }
 }
