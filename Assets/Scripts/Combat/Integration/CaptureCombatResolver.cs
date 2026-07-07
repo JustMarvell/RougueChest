@@ -9,32 +9,24 @@ namespace Chess.Integration
 {
     public static class CaptureCombatResolver
     {
-        public static void ResolveCapture(
-            Board board,
-            List<Square> attackerSquares,
-            List<Square> defenderSquares,
-            ICombatDecisionProvider attackerProvider,
-            ICombatDecisionProvider defenderProvider,
-            Action<bool> onResolved)
-        {
-            var attackerTeam = BuildTeam(board, attackerSquares, CombatTeam.Attacker);
-            var defenderTeam = BuildTeam(board, defenderSquares, CombatTeam.Defender);
-
-            var combat = new CombatState();
-            combat.OnCombatEnd += outcome => onResolved(outcome == CombatOutcome.AttackerWon);
-            combat.Setup(attackerTeam, defenderTeam, attackerProvider, defenderProvider);
-            combat.Begin();
-        }
-
-        public static void ResolveCapture(
-            Board board,
+        public static CombatState PrepareCombat(
+            GameState gameState,
             CaptureTeamSelection selection,
             ICombatDecisionProvider attackerProvider,
             ICombatDecisionProvider defenderProvider,
             Action<bool> onResolved)
         {
             var (attackerSquares, defenderSquares) = selection.GetTeams();
-            ResolveCapture(board, attackerSquares, defenderSquares, attackerProvider, defenderProvider, onResolved);
+            var attackerTeam = BuildTeam(gameState.Board, attackerSquares, CombatTeam.Attacker);
+            var defenderTeam = BuildTeam(gameState.Board, defenderSquares, CombatTeam.Defender);
+
+            var attackerSP = gameState.GetSPPool(selection.AttackerColor);
+            var defenderSP = gameState.GetSPPool(selection.DefenderColor);
+
+            var combat = new CombatState();
+            combat.OnCombatEnd += outcome => onResolved(outcome == CombatOutcome.AttackerWon);
+            combat.Setup(attackerTeam, defenderTeam, attackerSP, defenderSP, attackerProvider, defenderProvider);
+            return combat; // caller binds UI, then calls combat.Begin()
         }
 
         static List<CombatUnit> BuildTeam(Board board, List<Square> squares, CombatTeam team)
@@ -48,23 +40,6 @@ namespace Chess.Integration
             }
 
             return units;
-        }
-
-        public static CombatState PrepareCombat(
-            Board board,
-            CaptureTeamSelection selection,
-            ICombatDecisionProvider attackerProvider,
-            ICombatDecisionProvider defenderProvider,
-            Action<bool> onResolved)
-        {
-            var (attackerSquares, defenderSquares) = selection.GetTeams();
-            var attackerTeam = BuildTeam(board, attackerSquares, CombatTeam.Attacker);
-            var defenderTeam = BuildTeam(board, defenderSquares, CombatTeam.Defender);
-            
-            var combat = new CombatState();
-            combat.OnCombatEnd += outcome => onResolved(outcome == CombatOutcome.AttackerWon);
-            combat.Setup(attackerTeam, defenderTeam, attackerProvider, defenderProvider);
-            return combat; // caller binds UI, then calls combat.Begin()
         }
     }
 }

@@ -111,7 +111,11 @@ namespace Combat.View
 
             var provider = pendingProvider;
             pendingProvider = null;
-            provider.SubmitAction(CombatAction.BasicAttack(clicked));
+            provider.SubmitAction(new CombatAction
+            {
+                Ability = currentActor.Kit.Basic,
+                Targets = new List<CombatUnit> { clicked }
+            });
         }
 
         void HandleDecisionNeeded(CombatUnit actor, CombatState _)
