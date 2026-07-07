@@ -22,6 +22,7 @@ namespace Chess.View
         [Space]
 
         public CombatView combatView;
+        public CombatStageController combatStage;
 
         [Space]
 
@@ -110,12 +111,14 @@ namespace Chess.View
             var combat = CaptureCombatResolver.PrepareCombat(State, selection, attackerProvider, defenderProvider, attackerWon =>
             {
                 combatView.gameObject.SetActive(false);
+                combatStage?.Unbind();
                 State.ResolveCapture(attackerWon);
                 RedrawPieces();
                 UpdateTurnUI();
             });
 
             combatView.Bind(combat, attackerProvider, defenderProvider);
+            combatStage?.Bind(combat);
             combat.Begin();
         }
 
