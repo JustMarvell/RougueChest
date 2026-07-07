@@ -71,19 +71,8 @@ namespace Combat.View
             currentActor = actor;
             RefreshTurnRail();
 
-            foreach (var kv in unitEntries)
+            foreach(var kv in unitEntries)
                 kv.Value.SetHighlighted(kv.Key == actor);
-
-            // Only show the action bar if a player provider owns this actor;
-            // an AI provider (future) would decide instantly and never hit this.
-
-            var provider = actor.Team == CombatTeam.Attacker ? attackerProvider : defenderProvider;
-            if (provider.IsAwaitingInput)
-            {
-                pendingProvider = provider;
-                SetActionUIVisible(true);
-                SetPrompt($"{actor.Name}'s Turn - choose an action");
-            }
         }
 
         void RefreshTurnRail()
@@ -127,9 +116,14 @@ namespace Combat.View
 
         void HandleDecisionNeeded(CombatUnit actor, CombatState _)
         {
-            // Already handled via HandleUnitTurnStart's provider check; kept
-            // as a separate hook point since Skill/Ultimate flows will likely
-            // need their own entry here later without touching turn-start logic.
+            // Fires synchronously from inside RequestAction - exactly when a
+            // provider needs player input. A future AIDecisionProvider simply
+            // wouldn't raise this event at all, so the action UI never appears
+            // on AI turns without CombatView needing to know or care why.
+            var provider = actor.Team == CombatTeam.Attacker ? attackerProvider : defenderProvider;
+            pendingProvider = provider;
+            SetActionUIVisible(true);
+            SetPrompt($"{actor.Name}'s turn - choose an action");
         }
 
         void HandleDamageDealt(CombatUnit attacker, CombatUnit target, int amount)
