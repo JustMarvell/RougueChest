@@ -19,22 +19,36 @@ namespace Combat.Core
         public List<CombatUnit> DefenderTeam = new List<CombatUnit>();
         public CombatOutcome Outcome = CombatOutcome.None;
 
+        // References, NOT owned instances - these are the SAME SkillPointPool
+        // objects that live on GameState (per PieceColor), passed in at Setup.
+        // Whatever Current ends at when combat finishes is automatically what
+        // the next encounter starts with - no explicit save/carry-over step.
+        public SkillPointPool AttackerSP { get; private set; }
+        public SkillPointPool DefenderSP { get; private set; }
+
         ICombatDecisionProvider attackerProvider;
         ICombatDecisionProvider defenderProvider;
 
+        readonly HashSet<CombatUnit> announcedDefeats = new HashSet<CombatUnit>();
+
         public event Action<CombatUnit> OnUnitTurnStart;
         public event Action<CombatUnit, CombatUnit, int> OnDamageDealt;
+        public event Action<CombatUnit, CombatUnit, int> OnHealDealt;
         public event Action<CombatUnit> OnUnitDefeated;
         public event Action<CombatOutcome> OnCombatEnd;
 
         public void Setup(
             List<CombatUnit> attackers,
             List<CombatUnit> defenders,
+            SkillPointPool attackerSP,
+            SkillPointPool defenderSP,
             ICombatDecisionProvider attackerProvider,
             ICombatDecisionProvider defenderProvider)
         {
             AttackerTeam = attackers;
             DefenderTeam = defenders;
+            AttackerSP = attackerSP;
+            DefenderSP = defenderSP;
             this.attackerProvider = attackerProvider;
             this.defenderProvider = defenderProvider;
             Outcome = CombatOutcome.None;
@@ -43,9 +57,8 @@ namespace Combat.Core
             foreach (var u in DefenderTeam) TurnOrder.Register(u);
         }
 
-        // Starts the encounter. From here combat drives itself turn-by-turn
-        // through provider callbacks - no external while loop needed (or
-        // possible, since a real player's decision can take many frames).
+        public SkillPointPool GetSPPool(CombatTeam team) => team == CombatTeam.Attacker ? AttackerSP : DefenderSP;
+
         public void Begin()
         {
             AdvanceTurn();
@@ -79,28 +92,49 @@ namespace Combat.Core
         ICombatDecisionProvider GetProviderFor(CombatUnit actor) =>
             actor.Team == CombatTeam.Attacker ? attackerProvider : defenderProvider;
 
-        // Basic-attack-only resolution for now - Skill/Ultimate branch by
-        // action.Type comes once those exist (Section 4 of the design doc).
+        // Data-driven now: reads the Ability's Kind for SP handling, then
+        // runs every effect the ability carries. Damage/Heal/SpeedChange/
+        // AdvanceTurn are all just AbilityEffect implementations - CombatState
+        // no longer needs to know what a skill "does".
         void ResolveAction(CombatUnit actor, CombatAction action)
         {
-            foreach (var target in action.Targets)
-            {
-                if (target == null || target.IsDefeated) continue;
+            var ability = action.Ability;
+            var spPool = GetSPPool(actor.Team);
 
-                int damage = actor.Attack;
-                target.TakeDamage(damage);
-                OnDamageDealt?.Invoke(actor, target, damage);
+            if (ability.Kind == ActionKind.Skill)
+                spPool.TrySpend(ability.SPCost); // UI is expected to have already validated affordability before submitting
+            else if (ability.Kind == ActionKind.Basic)
+                spPool.Generate();
 
-                if (target.IsDefeated)
-                {
-                    OnUnitDefeated?.Invoke(target);
-                    TurnOrder.Remove(target);
-                }
-            }
+            actor.GainEnergy(ability.SelfEnergyGain);
+
+            foreach (var effect in ability.Effects)
+                effect.Apply(actor, action.Targets, this);
+
+            AnnounceNewlyDefeated();
 
             CheckForWinner();
             if (Outcome == CombatOutcome.None)
                 AdvanceTurn();
+        }
+
+        // Public hooks effects use to fire the shared events, since the
+        // events themselves are only invocable from within CombatState.
+        public void RaiseDamageDealt(CombatUnit source, CombatUnit target, int amount) => OnDamageDealt?.Invoke(source, target, amount);
+        public void RaiseHealDealt(CombatUnit source, CombatUnit target, int amount) => OnHealDealt?.Invoke(source, target, amount);
+
+        void AnnounceNewlyDefeated()
+        {
+            foreach (var u in AttackerTeam) TryAnnounceDefeat(u);
+            foreach (var u in DefenderTeam) TryAnnounceDefeat(u);
+        }
+
+        void TryAnnounceDefeat(CombatUnit u)
+        {
+            if (!u.IsDefeated || announcedDefeats.Contains(u)) return;
+            announcedDefeats.Add(u);
+            OnUnitDefeated?.Invoke(u);
+            TurnOrder.Remove(u);
         }
 
         void CheckForWinner()
