@@ -4,6 +4,30 @@ A chess-based strategy game where capturing a piece transitions into an HSR-styl
 
 ---
 
+## 0. Implementation Status
+
+**Chess Core** (`Assets/Scripts/Chess/Core`) — done: `Board`, `Piece`, `Square`, `Move`, `MoveGenerator` (pseudo-legal + legal move gen, attack detection), `GameState` (turn tracking, check/checkmate/stalemate, pending-capture handoff to combat via `OnCaptureTriggered`/`ResolveCapture`).
+
+**Chess View** (`Assets/Scripts/Chess/View`) — done: `BoardView` (builds board/pieces, TMP turn + selection UI, redraw on move), `BoardInputHandler` (click-to-select, click-to-move).
+
+**Combat Core** (`Assets/Scripts/Chess/Core` combat classes, namespace `Combat.Core`) — done:
+- `CombatUnit`: bare stats (HP/ATK/SPD), no skills/elements/cards yet — intentionally minimal.
+- `TurnOrderService`: discrete Action Value queue (`AV = BaseActionValue / SPD`), not a continuously-filling gauge — a priority queue keyed on "AV remaining until next action." Deterministic/serializable by construction. Supports speed-change rescaling and percent-based "advance turn" (both needed for the Knight's kit later), plus non-mutating turn-order preview.
+- `CombatState`: basic-attack-only loop (no skills/ultimates/elements/crit yet). Targeting is "first living enemy." Fires events for unit turn start, damage, defeat, combat end.
+
+**Combat Integration** (`Assets/Scripts/Combat/Integration`) — done, headless only:
+- `PieceCombatFactory`: placeholder baseline HP/ATK/SPD per piece type (Queen strongest, Pawn weakest, some spread).
+- `CaptureCombatResolver`: bridges a chess capture into combat. Currently runs the **whole encounter headlessly** with single-unit teams (just the attacker vs. just the defender) — no scene, no animation, and **not yet wired to manual team selection**.
+
+**Combat Selection** (`Assets/Scripts/Combat/Selection`) — done as standalone logic, **not yet connected**:
+- `CaptureTeamSelection`: computes the 3x3 eligible-ally squares around attacker/defender, phases through `AttackerPicking → DefenderPicking → Ready`, manual toggle-pick up to 5 per team. Exists and is presumably unit-testable, but `CaptureCombatResolver` doesn't call into it yet — that's the next integration step.
+
+**Dev/Debug** — `SceneHelper` (camera POV teleports, reload, quit) wired to temp UI buttons in `TestScene`; TMP turn indicator and selected-piece label.
+
+**Not started:** skills, ultimates, crit, element/aura/reaction system, cards/loadout system, combat scene/animation, multiplayer/server-authoritative layer.
+
+---
+
 ## 1. Core Concept
 
 - Played on a standard chess board (3D environment).
@@ -19,8 +43,8 @@ A chess-based strategy game where capturing a piece transitions into an HSR-styl
 - **Chess logic**, **combat logic**, and **rendering/scene transition** are separate systems communicating through a shared game state / events. This enables:
   - Unit testing rules without touching 3D scenes.
   - Clean multiplayer integration later (server holds canonical state; clients send move/skill requests, server validates + broadcasts).
-- Combat scene loads additively (board scene stays loaded), so control returns to the board without a full reload.
-- Turn order in combat should use an **action gauge** (fill-rate based), not a fixed turn queue — needed to support turn-order manipulation effects (e.g., Knight's SPD buff).
+- Combat scene loads additively (board scene stays loaded), so control returns to the board without a full reload. *(Not yet implemented — combat currently resolves headlessly in the same frame; no additive scene exists yet.)*
+- Turn order in combat uses a discrete **Action Value (AV) queue** — `AV = BaseActionValue / SPD`, a priority queue rather than a fixed turn list or a continuously-filling gauge. Same effect as HSR's gauge (higher SPD acts more often) but deterministic/replayable, which matters for turn-order manipulation effects (e.g., Knight's SPD buff) and for server authority later. Implemented in `TurnOrderService`.
 
 ---
 
@@ -36,6 +60,8 @@ A chess-based strategy game where capturing a piece transitions into an HSR-styl
    - Defender wins → attacker's piece is captured/removed from the board.
    - Only the original targeted piece is ever removed — team members return to their original board squares regardless of outcome.
    - If the King is the piece that loses combat, the game ends immediately.
+
+> **Current state:** Steps 2–4 (`CaptureTeamSelection`) exist as standalone logic but are not yet wired into the flow. `CaptureCombatResolver` currently skips straight from step 1 to a headless 1v1 resolution and calls `GameState.ResolveCapture` directly. Wiring team selection in is the next integration task.
 
 **Open questions (deferred):**
 - Enemy AI / opposing player team selection — manual like the player, or auto-picked for now until AI exists?
@@ -53,9 +79,12 @@ Every piece has: **basic attack + one skill + one ultimate**. Effects differ by 
 | Support/Buff | Yes | Buff/heal (single/AoE) | Support ultimate |
 | Defense | Yes | Shield/taunt (adjustable later) | Defensive ultimate |
 
+> Not yet implemented — `CombatUnit`/`CombatState` currently support basic attack only.
+
 ### Knight — turn manipulation
 - Support-style skill: increases SPD (action gauge fill rate) of a designated ally (single or multiple targets).
 - Can grant an extra turn / advance an ally's turn up in sequence (HSR "Advance Forward" style). Numbers TBD for balance.
+- `TurnOrderService.ApplySpeedChange` and `.AdvanceTurn` already exist to support this once the skill itself is written.
 
 ### Other pieces (placeholder, to be detailed later)
 - Pawn: simple attack, possible ability on promotion rank.
@@ -72,6 +101,8 @@ Every piece has: **basic attack + one skill + one ultimate**. Effects differ by 
 - Team selection: **manual**, player picks from the highlighted 3x3-area allies.
 - Combat plays out HSR-style (action-gauge turn order, basic attack/skill/ultimate per piece).
 - Only the original attacker/defender piece can be captured as a result; team members are never removed from the board.
+
+> **Current state:** `CombatState` supports N-vs-N teams already (`Setup(attackerTeam, defenderTeam)`), but `CaptureCombatResolver` currently only ever builds 1v1 teams since team selection isn't wired in yet.
 
 ---
 
@@ -102,6 +133,8 @@ Inspired by Genshin Impact's artifact system.
 - Card acquisition method: **TBD**.
 - Card sub-stats (secondary rolls): **TBD**.
 - Actual Set bonus effects (what each Set does): **TBD**.
+
+> Not started — no code yet.
 
 ---
 
@@ -137,6 +170,8 @@ Inspired by Genshin Impact's elemental reaction system. Names are chess-themed (
 - Element assignment to pieces: randomized (mechanism TBD).
 - Full complexity (all cross-element combos) can be scoped down if needed — core 5 reactions above are the baseline.
 
+> Not started — no code yet. Note: `CombatUnit.IsFrozen` and `CombatState.RunNextTurn`'s freeze-skip already exist as a placeholder for the **Stalemate** reaction specifically, ahead of the rest of the element system.
+
 ---
 
 ## 8. Multiplayer Considerations (future)
@@ -145,6 +180,8 @@ Inspired by Genshin Impact's elemental reaction system. Names are chess-themed (
 - Turn-based nature (both chess and combat) avoids real-time netcode complexity — no physics sync needed.
 - Keep chess and combat state fully serializable/deterministic from the start to make this addition incremental rather than a rewrite.
 - Team selection (manual pick) must also be a networked, server-validated action.
+
+> The AV-queue design in `TurnOrderService` was chosen specifically to keep this door open (deterministic, replayable, no wall-clock dependency).
 
 ---
 
@@ -158,6 +195,9 @@ Inspired by Genshin Impact's elemental reaction system. Names are chess-themed (
 
 ## 10. Status / Open Decisions Log
 
+- [ ] Wire `CaptureTeamSelection` into `CaptureCombatResolver` (currently headless 1v1 only)
+- [ ] Combat scene/animation (currently resolves instantly, no additive scene)
+- [ ] Skills, ultimates, crit for combat units
 - [ ] Team full-combatant balance (attack pieces vs support pieces contribution weighting)
 - [ ] Enemy/AI team selection logic
 - [ ] Card acquisition method
