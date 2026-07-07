@@ -124,13 +124,16 @@ namespace Chess.View
 
             combatView.gameObject.SetActive(true);
 
-            CaptureCombatResolver.ResolveCapture(State.Board, selection, attackerProvider, defenderProvider, attackerWon =>
+            var combat = CaptureCombatResolver.PrepareCombat(State.Board, selection, attackerProvider, defenderProvider, attackerWon =>
             {
                 combatView.gameObject.SetActive(false);
                 State.ResolveCapture(attackerWon);
                 RedrawPieces();
                 UpdateTurnUI();
             });
+
+            combatView.Bind(combat, attackerProvider, defenderProvider);
+            combat.Begin();
         }
 
         public void RefreshSelectionHighlights()

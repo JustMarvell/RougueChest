@@ -49,5 +49,22 @@ namespace Chess.Integration
 
             return units;
         }
+
+        public static CombatState PrepareCombat(
+            Board board,
+            CaptureTeamSelection selection,
+            ICombatDecisionProvider attackerProvider,
+            ICombatDecisionProvider defenderProvider,
+            Action<bool> onResolved)
+        {
+            var (attackerSquares, defenderSquares) = selection.GetTeams();
+            var attackerTeam = BuildTeam(board, attackerSquares, CombatTeam.Attacker);
+            var defenderTeam = BuildTeam(board, defenderSquares, CombatTeam.Defender);
+            
+            var combat = new CombatState();
+            combat.OnCombatEnd += outcome => onResolved(outcome == CombatOutcome.AttackerWon);
+            combat.Setup(attackerTeam, defenderTeam, attackerProvider, defenderProvider);
+            return combat; // caller binds UI, then calls combat.Begin()
+        }
     }
 }
