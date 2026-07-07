@@ -9,23 +9,6 @@ using Combat.View;
 
 namespace Chess.View
 {
-    [System.Serializable]
-    public class PieceModelSet
-    {
-        public GameObject pawn, knight, bishop, rook, queen, king;
-
-        public GameObject Get(PieceType type) => type switch
-        {
-            PieceType.Pawn => pawn,
-            PieceType.Knight => knight,
-            PieceType.Bishop => bishop,
-            PieceType.Rook => rook,
-            PieceType.Queen => queen,
-            PieceType.King => king,
-            _ => null
-        };
-    }
-
     public class BoardView : MonoBehaviour
     {
         public float squareSize = 1f;
