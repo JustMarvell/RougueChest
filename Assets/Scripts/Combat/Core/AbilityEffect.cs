@@ -38,8 +38,8 @@ namespace Combat.Core
             {
                 if (target == null || target.IsDefeated) continue;
                 int dmg = Mathf.RoundToInt(caster.Attack * AttackMultiplier);
-                target.TakeDamage(dmg);
-                state.RaiseDamageDealt(caster, target, dmg);
+                // target.TakeDamage(dmg);
+                // state.RaiseDamageDealt(caster, target, dmg);
             }
         }
     }
@@ -56,8 +56,8 @@ namespace Combat.Core
             {
                 if (target == null || target.IsDefeated) continue;
                 int amount = FlatAmount + Mathf.RoundToInt(target.MaxHP * MaxHPPercent);
-                target.Heal(amount);
-                state.RaiseHealDealt(caster, target, amount); 
+                // target.Heal(amount);
+                // state.RaiseHealDealt(caster, target, amount); 
             }
         }
     }
