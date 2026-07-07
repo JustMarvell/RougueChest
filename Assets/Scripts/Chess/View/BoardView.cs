@@ -1,8 +1,8 @@
 using UnityEngine;
 using Chess.Core;
-using TMPro;
 using Combat.Selection;
 using Combat.Integration;
+using TMPro;
 
 namespace Chess.View
 {
@@ -50,14 +50,14 @@ namespace Chess.View
         // know whether clicks should go to selection instead of normal moves.
         public CaptureTeamSelection ActiveSelection { get; private set; }
 
-        GameObject[, ] pieceObjects = new GameObject[8, 8];
-        GameObject[, ] tileObjects = new GameObject[8, 8];
-        Color[, ] tileBaseColors = new Color[8, 8];
+        GameObject[,] pieceObjects = new GameObject[8, 8];
+        GameObject[,] tileObjects = new GameObject[8, 8];
+        Color[,] tileBaseColors = new Color[8, 8];
 
         void Awake()
         {
             State = new GameState();
-            
+
             State.OnCaptureTriggered += (from, to) =>
             {
                 ActiveSelection = new CaptureTeamSelection(State.Board, from, to);
@@ -126,14 +126,10 @@ namespace Chess.View
             if (ActiveSelection == null) return;
 
             foreach (var sq in ActiveSelection.CurrentEligible)
-            {
                 SetTileColor(sq, EligibleHighlight);
-            }
 
             foreach (var sq in ActiveSelection.CurrentPicked)
-            {
                 SetTileColor(sq, PickedHighlight);
-            }
 
             SetTileColor(ActiveSelection.CurrentOrigin, OriginHighlight);
         }
@@ -141,12 +137,8 @@ namespace Chess.View
         public void ClearSelectionHighlights()
         {
             for (int f = 0; f < 8; f++)
-            {
                 for (int r = 0; r < 8; r++)
-                {
                     tileObjects[f, r].GetComponent<Renderer>().material.color = tileBaseColors[f, r];
-                }
-            }
         }
 
         void SetTileColor(Square sq, Color color)
@@ -167,7 +159,11 @@ namespace Chess.View
                     tile.transform.localPosition = SquareToWorld(new Square(f, r));
 
                     var mat = (f + r) % 2 == 0 ? blackTileMaterial : whiteTileMaterial;
-                    if (mat != null) tile.GetComponent<Renderer>().material = mat;
+                    var renderer = tile.GetComponent<Renderer>();
+                    if (mat != null) renderer.material = mat;
+
+                    tileObjects[f, r] = tile;
+                    tileBaseColors[f, r] = renderer.material.color;
                 }
             }
         }
