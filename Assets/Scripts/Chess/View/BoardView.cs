@@ -3,6 +3,8 @@ using Chess.Core;
 using Combat.Selection;
 using Combat.Integration;
 using TMPro;
+using Combat.Core;
+using Chess.Integration;
 
 namespace Chess.View
 {
@@ -103,21 +105,26 @@ namespace Chess.View
             }
         }
 
-        // Called by BoardInputHandler once ActiveSelection.IsReady - both
-        // phases confirmed, teams locked in. Runs the headless combat and
-        // feeds the result back into GameState exactly like the old
-        // single-piece placeholder did.
         public void ResolveActiveSelection()
         {
             if (ActiveSelection == null || !ActiveSelection.IsReady) return;
 
-            bool attackerWon = CaptureCombatResolver.ResolveCapture(State.Board, ActiveSelection);
+            
+            var attackerProvider = new PlayerDecisionProvider();
+            var defenderProvider = new PlayerDecisionProvider();
+            // TODO: hand these providers to a CombatView/CombatInputHandler so
+            // SubmitAction gets called from real player input instead of hanging.
+
+            var selection = ActiveSelection;
             ActiveSelection = null;
             ClearSelectionHighlights();
 
-            State.ResolveCapture(attackerWon);
-            RedrawPieces();
-            UpdateTurnUI();
+            CaptureCombatResolver.ResolveCapture(State.Board, selection, attackerProvider, defenderProvider, attackerWon =>
+            {
+                State.ResolveCapture(attackerWon);
+                RedrawPieces();
+                UpdateTurnUI();
+            });
         }
 
         public void RefreshSelectionHighlights()
