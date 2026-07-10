@@ -66,7 +66,7 @@ namespace Combat.View
         void HandleTurnStart(CombatUnit actor)
         {
             foreach (var kv in actors)
-                kv.Value.SetActingHighlight(kv.Key == actor);
+                if (kv.Key.CurrentHP > 0) kv.Value.SetActingHighlight(kv.Key == actor);
 
             if (actors.TryGetValue(actor, out var actorView))
                 cameraController?.FocusOnActor(actorView.transform);
