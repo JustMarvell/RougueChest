@@ -1163,6 +1163,7 @@ MonoBehaviour:
   clashFocusDistance: 3
   clashFocusHeight: 1.6
   focusTransitionDuration: 0.35
+  clashHoldDuration: 0
 --- !u!1 &331815267
 GameObject:
   m_ObjectHideFlags: 0
