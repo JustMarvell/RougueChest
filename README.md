@@ -6,25 +6,40 @@ A chess-based strategy game where capturing a piece transitions into an HSR-styl
 
 ## 0. Implementation Status
 
-**Chess Core** (`Assets/Scripts/Chess/Core`) — done: `Board`, `Piece`, `Square`, `Move`, `MoveGenerator` (pseudo-legal + legal move gen, attack detection), `GameState` (turn tracking, check/checkmate/stalemate, pending-capture handoff to combat via `OnCaptureTriggered`/`ResolveCapture`).
+**Chess Core** (`Assets/Scripts/Chess/Core`) — done: `Board`, `Piece`, `Square`, `Move`, `MoveGenerator` (pseudo-legal + legal move gen, attack detection), `GameState` (turn tracking, check/checkmate/stalemate, pending-capture handoff to combat via `OnCaptureTriggered`/`ResolveCapture`, and now the match-persistent `WhiteSP`/`BlackSP` skill point pools, each starting at 2).
 
-**Chess View** (`Assets/Scripts/Chess/View`) — done: `BoardView` (builds board/pieces, TMP turn + selection UI, redraw on move), `BoardInputHandler` (click-to-select, click-to-move).
+**Chess View** (`Assets/Scripts/Chess/View`) — done: `BoardView` (builds board/pieces, TMP turn + selection UI, redraw on move; now also wires up `CombatView`, `CombatStageController`, and `CombatCameraController` and drives the full capture → combat → resolution flow via `ResolveActiveSelection`), `BoardInputHandler` (click-to-select/move, plus click-to-pick/confirm routing during `GameStatus.AwaitingCombat`).
 
 **Combat Core** (`Assets/Scripts/Chess/Core` combat classes, namespace `Combat.Core`) — done:
-- `CombatUnit`: bare stats (HP/ATK/SPD), no skills/elements/cards yet — intentionally minimal.
-- `TurnOrderService`: discrete Action Value queue (`AV = BaseActionValue / SPD`), not a continuously-filling gauge — a priority queue keyed on "AV remaining until next action." Deterministic/serializable by construction. Supports speed-change rescaling and percent-based "advance turn" (both needed for the Knight's kit later), plus non-mutating turn-order preview.
-- `CombatState`: basic-attack-only loop (no skills/ultimates/elements/crit yet). Targeting is "first living enemy." Fires events for unit turn start, damage, defeat, combat end.
+- `CombatUnit`: HP/ATK/SPD plus Energy/MaxEnergy/`UltimateReady`, an assigned `PieceCombatKit`, and an `IsFrozen` flag (placeholder for the future Stalemate reaction).
+- `TurnOrderService`: discrete Action Value queue (`AV = BaseActionValue / SPD`), a priority queue keyed on "AV remaining until next action." Deterministic/serializable by construction. Supports speed-change rescaling and percent-based "advance turn," plus non-mutating turn-order preview.
+- `CombatState`: now fully data-driven — `ResolveAction` reads the acting `AbilityDefinition`'s `Kind` (Basic/Skill/Ultimate) to handle SP generation/spending and Energy gain, then runs every `AbilityEffect` the ability carries. Fires events for unit turn start, damage, heal, defeat, and combat end.
+- `AbilityDefinition` / `AbilityEffect` (`Assets/Scripts/Combat/Core`): polymorphic effect list (`[SerializeReference]`) per ability. Implemented effects: `DamageEffect`, `HealEffect`, `SpeedChangeEffect` (Knight's SPD buff, plugs into `TurnOrderService.ApplySpeedChange`), `AdvanceTurnEffect` (Knight's "Advance Forward" ultimate, plugs into `TurnOrderService.AdvanceTurn`).
+- `PieceCombatKit`: Basic/Skill/Ultimate triplet + per-piece `MaxEnergy`.
+- `SkillPointPool`, `CombatTargeting`, `CombatAction`, `ICombatDecisionProvider` / `PlayerDecisionProvider` (event-driven: raises `OnDecisionNeeded`, waits for `SubmitAction`).
 
-**Combat Integration** (`Assets/Scripts/Combat/Integration`) — done, headless only:
-- `PieceCombatFactory`: placeholder baseline HP/ATK/SPD per piece type (Queen strongest, Pawn weakest, some spread).
-- `CaptureCombatResolver`: bridges a chess capture into combat. Currently runs the **whole encounter headlessly** with single-unit teams (just the attacker vs. just the defender) — no scene, no animation, and **not yet wired to manual team selection**.
+**Combat Integration** (`Assets/Scripts/Combat/Integration`) — done, and now wired to manual team selection:
+- `PieceCombatFactory`: placeholder baseline HP/ATK/SPD per piece type (Queen strongest, Pawn weakest), now also assigns each unit its `PieceCombatKit` from `DefaultCombatKits`.
+- `DefaultCombatKits`: placeholder-but-functional Basic/Skill/Ultimate abilities for all six piece types (numbers not balanced), including the Knight's turn-manipulation skill/ultimate and Rook/King heal-style skills as stand-ins for a future Shield/Taunt effect.
+- `CaptureCombatResolver`: **now consumes a `CaptureTeamSelection`** — builds real N-vs-N teams from the player's picks (via `selection.GetTeams()`) instead of headless 1v1, and pulls each side's persistent `SkillPointPool` from `GameState`.
 
-**Combat Selection** (`Assets/Scripts/Combat/Selection`) — done as standalone logic, **not yet connected**:
-- `CaptureTeamSelection`: computes the 3x3 eligible-ally squares around attacker/defender, phases through `AttackerPicking → DefenderPicking → Ready`, manual toggle-pick up to 5 per team. Exists and is presumably unit-testable, but `CaptureCombatResolver` doesn't call into it yet — that's the next integration step.
+**Combat Selection** (`Assets/Scripts/Combat/Selection`) — done **and connected**:
+- `CaptureTeamSelection`: computes the 3x3 eligible-ally squares around attacker/defender, phases through `AttackerPicking → DefenderPicking → Ready`, manual toggle-pick up to 5 per team.
+- `BoardInputHandler` routes clicks during `AwaitingCombat` into `TogglePick`/`ConfirmCurrentPhase`, and `BoardView.ResolveActiveSelection` fires once selection is `Ready`, building the combat encounter end-to-end.
+
+**Combat View (UI)** (`Assets/Scripts/Combat/View`) — new, done for the core loop:
+- `CombatView`: turn-order rail (`PreviewUpcoming`), team HP bars, and action buttons (Basic/Skill/Ultimate) with full targeting flow (SingleEnemy/SingleAlly/AllEnemies/AllAllies/Self), SP-affordability and ultimate-readiness checks, and a prompt label.
+- `CombatUnitBarEntry`: reusable HP bar/portrait/click entry shared by the rail and team bars; dumb by design, all click semantics live in `CombatView`.
+
+**Combat Stage (3D)** (`Assets/Scripts/Combat/View`) — new, done for the core loop:
+- `CombatFormation`: attacker/defender slot layout — manual `Transform` markers with an auto-generated-row fallback.
+- `CombatStageController`: spawns/despawns per-unit `CombatUnitActor`s from `PieceModelSet`, drives acting-highlight/attack/hit/defeat animations off `CombatState` events, and hands off to `CombatCameraController`.
+- `CombatCameraController`: queued cinematic camera — immediate enter/exit between board and combat views, plus per-turn "focus on actor" and "focus on clash" cuts that play back-to-back without racing.
+- **Note:** the combat stage is not an additively-loaded scene — it's a second staging area inside the same scene (offset in world space, see `ChessCombatStage` in `TestScene`), and the camera cuts to/from it. This differs from the original additive-scene plan in Section 2 below.
 
 **Dev/Debug** — `SceneHelper` (camera POV teleports, reload, quit) wired to temp UI buttons in `TestScene`; TMP turn indicator and selected-piece label.
 
-**Not started:** skills, ultimates, crit, element/aura/reaction system, cards/loadout system, combat scene/animation, multiplayer/server-authoritative layer.
+**Not started:** crit, element/aura/reaction system, cards/loadout system, multiplayer/server-authoritative layer, AI/opponent team selection (both sides currently pick manually via `PlayerDecisionProvider`), combat kit balancing (current numbers are placeholders).
 
 ---
 
@@ -43,7 +58,7 @@ A chess-based strategy game where capturing a piece transitions into an HSR-styl
 - **Chess logic**, **combat logic**, and **rendering/scene transition** are separate systems communicating through a shared game state / events. This enables:
   - Unit testing rules without touching 3D scenes.
   - Clean multiplayer integration later (server holds canonical state; clients send move/skill requests, server validates + broadcasts).
-- Combat scene loads additively (board scene stays loaded), so control returns to the board without a full reload. *(Not yet implemented — combat currently resolves headlessly in the same frame; no additive scene exists yet.)*
+- Combat currently plays out on a second staging area inside the same scene (offset in world space), with `CombatCameraController` cutting between the board view and the combat view. *(Originally planned as an additively-loaded scene — see Section 0. Revisit if load times or scene-size become a problem.)*
 - Turn order in combat uses a discrete **Action Value (AV) queue** — `AV = BaseActionValue / SPD`, a priority queue rather than a fixed turn list or a continuously-filling gauge. Same effect as HSR's gauge (higher SPD acts more often) but deterministic/replayable, which matters for turn-order manipulation effects (e.g., Knight's SPD buff) and for server authority later. Implemented in `TurnOrderService`.
 
 ---
@@ -61,7 +76,7 @@ A chess-based strategy game where capturing a piece transitions into an HSR-styl
    - Only the original targeted piece is ever removed — team members return to their original board squares regardless of outcome.
    - If the King is the piece that loses combat, the game ends immediately.
 
-> **Current state:** Steps 2–4 (`CaptureTeamSelection`) exist as standalone logic but are not yet wired into the flow. `CaptureCombatResolver` currently skips straight from step 1 to a headless 1v1 resolution and calls `GameState.ResolveCapture` directly. Wiring team selection in is the next integration task.
+> **Current state:** Steps 1–6 are wired end-to-end — `CaptureTeamSelection` drives the highlight/pick UI via `BoardInputHandler`, and `BoardView.ResolveActiveSelection` hands the finished picks to `CaptureCombatResolver`/`CombatState`, which runs the full N-vs-N encounter with the 3D stage, camera, and UI, then calls back into `GameState.ResolveCapture`. Both attacker and defender team selection are currently manual (no AI opponent yet).
 
 **Open questions (deferred):**
 - Enemy AI / opposing player team selection — manual like the player, or auto-picked for now until AI exists?
@@ -79,19 +94,18 @@ Every piece has: **basic attack + one skill + one ultimate**. Effects differ by 
 | Support/Buff | Yes | Buff/heal (single/AoE) | Support ultimate |
 | Defense | Yes | Shield/taunt (adjustable later) | Defensive ultimate |
 
-> Not yet implemented — `CombatUnit`/`CombatState` currently support basic attack only.
+> **Current state:** All six piece types have a working Basic/Skill/Ultimate kit via `DefaultCombatKits`, resolved through the generic `AbilityDefinition`/`AbilityEffect` system in `CombatState`. Numbers are placeholders, not balanced.
 
 ### Knight — turn manipulation
-- Support-style skill: increases SPD (action gauge fill rate) of a designated ally (single or multiple targets).
-- Can grant an extra turn / advance an ally's turn up in sequence (HSR "Advance Forward" style). Numbers TBD for balance.
-- `TurnOrderService.ApplySpeedChange` and `.AdvanceTurn` already exist to support this once the skill itself is written.
+- Skill ("Spur"): increases a single ally's SPD via `SpeedChangeEffect`, which rescales their remaining AV through `TurnOrderService.ApplySpeedChange`.
+- Ultimate ("Chavalry Charge"): advances all allies' turns via `AdvanceTurnEffect` → `TurnOrderService.AdvanceTurn(percent: 1.0)`, i.e. full HSR-style "Advance Forward."
 
-### Other pieces (placeholder, to be detailed later)
-- Pawn: simple attack, possible ability on promotion rank.
-- Bishop: ranged/magic-themed.
-- Rook: tanky/defense-themed.
-- Queen: strongest all-rounder, has an ultimate.
-- King: defensive/support-leaning; losing = game over.
+### Other pieces (placeholder kits, to be rebalanced later)
+- **Pawn**: cheap/spammy — AoE ultimate ("Promotion Strike"), low costs across the board.
+- **Bishop**: AoE skill ("Diagonal Ray"), high-multiplier single-target ultimate ("Prism Beam").
+- **Rook**: tanky — Skill/Ultimate are self/AoE heal placeholders ("Brace"/"Bulwark") standing in for a future Shield/Taunt effect.
+- **Queen**: strongest all-rounder, highest-multiplier AoE ultimate ("Sovereign's Wrath").
+- **King**: defensive/support-leaning (ally heal skill/ultimate); losing = game over, handled at the `GameState` level, not here.
 
 ---
 
@@ -102,7 +116,7 @@ Every piece has: **basic attack + one skill + one ultimate**. Effects differ by 
 - Combat plays out HSR-style (action-gauge turn order, basic attack/skill/ultimate per piece).
 - Only the original attacker/defender piece can be captured as a result; team members are never removed from the board.
 
-> **Current state:** `CombatState` supports N-vs-N teams already (`Setup(attackerTeam, defenderTeam)`), but `CaptureCombatResolver` currently only ever builds 1v1 teams since team selection isn't wired in yet.
+> **Current state:** Fully implemented — `CaptureTeamSelection` → `CaptureCombatResolver` → `CombatState.Setup(attackerTeam, defenderTeam, ...)` runs real N-vs-N encounters (1–5 per side), rendered via `CombatStageController`/`CombatView`, with each side's `SkillPointPool` persisting on `GameState` across the whole match.
 
 ---
 
@@ -134,7 +148,7 @@ Inspired by Genshin Impact's artifact system.
 - Card sub-stats (secondary rolls): **TBD**.
 - Actual Set bonus effects (what each Set does): **TBD**.
 
-> Not started — no code yet.
+> Not started — no code yet. Crit is also not yet wired into `DamageEffect`.
 
 ---
 
@@ -170,7 +184,7 @@ Inspired by Genshin Impact's elemental reaction system. Names are chess-themed (
 - Element assignment to pieces: randomized (mechanism TBD).
 - Full complexity (all cross-element combos) can be scoped down if needed — core 5 reactions above are the baseline.
 
-> Not started — no code yet. Note: `CombatUnit.IsFrozen` and `CombatState.RunNextTurn`'s freeze-skip already exist as a placeholder for the **Stalemate** reaction specifically, ahead of the rest of the element system.
+> Not started — no code yet. Note: `CombatUnit.IsFrozen` and `CombatState.AdvanceTurn`'s freeze-skip already exist as a placeholder for the **Stalemate** reaction specifically, ahead of the rest of the element system.
 
 ---
 
@@ -195,10 +209,11 @@ Inspired by Genshin Impact's elemental reaction system. Names are chess-themed (
 
 ## 10. Status / Open Decisions Log
 
-- [ ] Wire `CaptureTeamSelection` into `CaptureCombatResolver` (currently headless 1v1 only)
-- [ ] Combat scene/animation (currently resolves instantly, no additive scene)
-- [ ] Skills, ultimates, crit for combat units
-- [ ] Team full-combatant balance (attack pieces vs support pieces contribution weighting)
+- [x] Wire `CaptureTeamSelection` into `CaptureCombatResolver`
+- [x] Skills and ultimates for combat units (data-driven via `AbilityDefinition`/`AbilityEffect`)
+- [ ] Combat scene/animation — currently an in-scene offset stage + camera cuts, not an additive scene; revisit if this becomes limiting
+- [ ] Crit for combat units
+- [ ] Team full-combatant balance (attack pieces vs support pieces contribution weighting) — current kit numbers are unbalanced placeholders
 - [ ] Enemy/AI team selection logic
 - [ ] Card acquisition method
 - [ ] Card sub-stats
