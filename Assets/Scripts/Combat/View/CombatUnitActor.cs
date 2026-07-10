@@ -9,6 +9,7 @@ namespace Combat.View
         public CombatUnit BoundUnit { get; private set; }
 
         GameObject visualInstance;
+        GameObject targetRing;
         Vector3 homePosition;
         Coroutine activeRoutine;
 
@@ -35,6 +36,56 @@ namespace Combat.View
                 visualInstance.GetComponent<Renderer>().material.color =
                     unit.Color == PieceColor.White ? Color.white : Color.gray;
             }
+
+            SetupClickCollider();
+        }
+
+        // Added regardless of whether the model prefab has its own colliders,
+        // so raycasting for target-selection is reliable across chess meshes,
+        // primitive fallbacks, and future custom characters alike.
+        void SetupClickCollider()
+        {
+            var box = gameObject.AddComponent<BoxCollider>();
+            var renderers = visualInstance.GetComponentsInChildren<Renderer>();
+
+            if (renderers.Length > 0)
+            {
+                var bounds = renderers[0].bounds;
+                foreach (var r in renderers) bounds.Encapsulate(r.bounds);
+                box.center = transform.InverseTransformPoint(bounds.center);
+                box.size = bounds.size;
+            }
+            else
+            {
+                box.center = Vector3.up * 0.5f;
+                box.size = new Vector3(0.6f, 1f, 0.6f);
+            }
+        }
+
+        // Simple flat ring at the actor's feet - placeholder visual until a
+        // real decal/outline shader exists. Toggled by CombatView whenever
+        // this unit is (or stops being) a legal target for the pending ability.
+        public void SetTargetable(bool targetable)
+        {
+            if (targetable) EnsureTargetRing();
+            if (targetRing != null) targetRing.SetActive(targetable);
+        }
+
+        void EnsureTargetRing()
+        {
+            if (targetRing != null) return;
+
+            targetRing = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Destroy(targetRing.GetComponent<Collider>()); // don't let the ring itself block raycast
+            targetRing.name = "TargetRing";
+            targetRing.transform.SetParent(transform);
+            targetRing.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+            targetRing.transform.localScale = new Vector3(0.9f, 0.02f, 0.9f);
+
+            var renderer = targetRing.GetComponent<Renderer>();
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            mat.color = new Color(1f, 0.25f, 0.2f, 0.85f);
+            renderer.material = mat;
         }
 
         public void SetActingHighlight(bool active)
