@@ -46,6 +46,8 @@ namespace Combat.View
 
         public void Bind(CombatState combatState, PlayerDecisionProvider attacker, PlayerDecisionProvider defender)
         {
+            ClearPreviousCombat();
+
             state = combatState;
             attackerProvider = attacker;
             defenderProvider = defender;
@@ -67,6 +69,17 @@ namespace Combat.View
             if (ultimateButton != null) ultimateButton.onClick.AddListener(OnUltimateClicked);
 
             SetActionUIVisible(false);
+        }
+
+        void ClearPreviousCombat()
+        {
+            foreach (var kv in unitEntries)
+                if (kv.Value != null) Destroy(kv.Value.gameObject);
+            unitEntries.Clear();
+
+            foreach (var e in railEntries)
+                if (e != null) Destroy(e.gameObject);
+            railEntries.Clear();
         }
 
         void BuildTeamBars(List<CombatUnit> team, Transform container)
