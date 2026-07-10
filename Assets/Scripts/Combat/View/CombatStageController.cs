@@ -80,18 +80,7 @@ namespace Combat.View
                 targetActor.PlayHitReaction();
 
                 cameraController?.FocusOnClash(sourceActor.transform, targetActor.transform);
-                StartCoroutine(ReturnFocusAfterClash(sourceActor.transform));
             }
-        }
-
-        // Brief hold on the clash, then back to framing the actor - so a
-        // multi-hit AoE skill (several OnDamageDealt calls in a row) still
-        // reads as "actor -> clash -> clash -> ... -> actor" instead of the
-        // camera snapping straight back mid-sequence.
-        IEnumerator ReturnFocusAfterClash(Transform actorTransform)
-        {
-            yield return new WaitForSeconds(0.5f);
-            cameraController?.FocusOnActor(actorTransform);
         }
 
         void HandleUnitDefeated(CombatUnit unit)
