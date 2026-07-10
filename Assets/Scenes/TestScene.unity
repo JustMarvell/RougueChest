@@ -196,6 +196,7 @@ MonoBehaviour:
     queen: {fileID: 6499197578323015342, guid: 2b483b4f5bc08064d9b617a6c9f4fee3, type: 3}
     king: {fileID: 1249996722537591641, guid: 5948213c1fad03d4f851b5d316d3cfe9, type: 3}
   actorScale: 1
+  cameraController: {fileID: 330585548}
 --- !u!114 &48928637
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1157,6 +1158,11 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  actorFocusDistance: 2.2
+  actorFocusHeight: 1.4
+  clashFocusDistance: 3
+  clashFocusHeight: 1.6
+  focusTransitionDuration: 0.35
 --- !u!1 &331815267
 GameObject:
   m_ObjectHideFlags: 0
