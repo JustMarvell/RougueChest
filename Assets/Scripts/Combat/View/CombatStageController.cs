@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Chess.Core;
 using Chess.View;
@@ -12,6 +13,7 @@ namespace Combat.View
         public PieceModelSet whiteModels;
         public PieceModelSet blackModels;
         public float actorScale = 1f;
+        public CombatCameraController cameraController;
 
         CombatState state;
         readonly Dictionary<CombatUnit, CombatUnitActor> actors = new();
@@ -65,6 +67,9 @@ namespace Combat.View
         {
             foreach (var kv in actors)
                 kv.Value.SetActingHighlight(kv.Key == actor);
+
+            if (actors.TryGetValue(actor, out var actorView))
+                cameraController?.FocusOnActor(actorView.transform);
         }
 
         void HandleDamageDealt(CombatUnit source, CombatUnit target, int amount)
@@ -73,7 +78,20 @@ namespace Combat.View
             {
                 sourceActor.PlayAttack(targetActor.transform.position);
                 targetActor.PlayHitReaction();
+
+                cameraController?.FocusOnClash(sourceActor.transform, targetActor.transform);
+                StartCoroutine(ReturnFocusAfterClash(sourceActor.transform));
             }
+        }
+
+        // Brief hold on the clash, then back to framing the actor - so a
+        // multi-hit AoE skill (several OnDamageDealt calls in a row) still
+        // reads as "actor -> clash -> clash -> ... -> actor" instead of the
+        // camera snapping straight back mid-sequence.
+        IEnumerator ReturnFocusAfterClash(Transform actorTransform)
+        {
+            yield return new WaitForSeconds(0.5f);
+            cameraController?.FocusOnActor(actorTransform);
         }
 
         void HandleUnitDefeated(CombatUnit unit)
