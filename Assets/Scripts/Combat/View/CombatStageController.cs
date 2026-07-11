@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using Chess.Core;
 using Chess.View;
@@ -87,6 +86,18 @@ namespace Combat.View
         {
             if (actors.TryGetValue(unit, out var actor))
                 actor.PlayDefeat();
+        }
+
+        public void SetTargetable(CombatUnit unit, bool targetable)
+        {
+            if (actors.TryGetValue(unit, out var actor))
+                actor.SetTargetable(targetable);
+        }
+
+        public void ClearAllTargetable()
+        {
+            foreach (var kv in actors)
+                kv.Value.SetTargetable(false);
         }
     }
 }
