@@ -40,7 +40,7 @@ namespace Combat.Integration
             // Pawn - cheap, spammy, low ultimate cost.
             Add(PieceType.Pawn, maxEnergy: 60,
                 basic: Ability("Jab", ActionKind.Basic, TargetType.SingleEnemy, 0, 20,
-                    new DamageEffect { AttackMultiplier = 1.0f}),
+                    new ElementalDamageEffect { AttackMultiplier = 1.0f, Element = ElementType.Gambit }),
                 skill: Ability("Advance", ActionKind.Skill, TargetType.SingleEnemy, 1, 20,
                     new DamageEffect { AttackMultiplier = 1.3f }),
                 ultimate: Ability("Promotion Strike", ActionKind.Ultimate, TargetType.AllEnemies, 0, 0,
@@ -49,7 +49,7 @@ namespace Combat.Integration
             // Knight - turn manipulation support, per the design doc.
             Add(PieceType.Knight, maxEnergy: 100,
                 basic: Ability("Slash", ActionKind.Basic, TargetType.SingleEnemy, 0, 20,
-                    new DamageEffect { AttackMultiplier = 1.0f }),
+                    new ElementalDamageEffect { AttackMultiplier = 1.0f, Element = ElementType.Blitz }),
                 skill: Ability("Spur", ActionKind.Skill, TargetType.SingleAlly, 1, 15,
                     new SpeedChangeEffect { Delta = 30 }),
                 ultimate: Ability("Chavalry Charge", ActionKind.Ultimate, TargetType.AllAllies, 0, 0,
@@ -58,7 +58,7 @@ namespace Combat.Integration
             // Bishop - ranged/magic AoE skill, big single-target burst ult.
             Add(PieceType.Bishop, maxEnergy: 90,
                 basic: Ability("Bolt", ActionKind.Basic, TargetType.SingleEnemy, 0, 20,
-                    new DamageEffect { AttackMultiplier = 1.0f }),
+                    new ElementalDamageEffect { AttackMultiplier = 1.0f, Element = ElementType.Tempo }),
                 skill: Ability("Diagonal Ray", ActionKind.Skill, TargetType.AllEnemies, 1, 15,
                     new DamageEffect { AttackMultiplier = 0.6f }),
                 ultimate: Ability("Prism Beam", ActionKind.Ultimate, TargetType.SingleEnemy, 0, 0,
@@ -68,7 +68,7 @@ namespace Combat.Integration
             // until a real Shield/Taunt effect exists.
             Add(PieceType.Rook, maxEnergy: 110,
                 basic: Ability("Bash", ActionKind.Basic, TargetType.SingleEnemy, 0, 20,
-                    new DamageEffect { AttackMultiplier = 1.0f }),
+                    new ElementalDamageEffect { AttackMultiplier = 1.0f, Element = ElementType.Fortress }),
                 skill: Ability("Brace", ActionKind.Skill, TargetType.Self, 1, 15,
                     new HealEffect { MaxHPPercent = 0.15f }),
                 ultimate: Ability("Bulwark", ActionKind.Ultimate, TargetType.AllAllies, 0, 0,
@@ -77,7 +77,7 @@ namespace Combat.Integration
             // Queen - strongest all-rounder, most expensive ultimate.
             Add(PieceType.Queen, maxEnergy: 140,
                 basic: Ability("Strike", ActionKind.Basic, TargetType.SingleEnemy, 0, 20,
-                    new DamageEffect { AttackMultiplier = 1.0f }),
+                    new ElementalDamageEffect { AttackMultiplier = 1.0f, Element = ElementType.Zugzwang }),
                 skill: Ability("Royal Decree", ActionKind.Skill, TargetType.SingleEnemy, 1, 15,
                     new DamageEffect { AttackMultiplier = 1.5f }),
                 ultimate: Ability("Sovereign's Wrath", ActionKind.Ultimate, TargetType.AllEnemies, 0, 0,
