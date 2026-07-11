@@ -23,6 +23,9 @@ namespace Combat.View
         public Button basicAttackButton;
         public Button skillButton;
         public Button ultimateButton;
+        public CombatStageController combatStage;       // optional; drives 3D ring highlights alongside the 2D bars
+
+        public bool IsAwaitingTarget => awaitingTarget;
 
         // Optional - if left unassigned, CombatView just skips updating them.
         // Lets you wire these up incrementally in the Inspector without
@@ -43,6 +46,44 @@ namespace Combat.View
         PlayerDecisionProvider pendingProvider;
         AbilityDefinition pendingAbility;
         bool awaitingTarget;
+
+        // entry point for 3D raycast clicks; funnels into the same
+        // validation/confirm path as clicking a CombatUnitBarEntry.
+        public void TrySelectTarget(CombatUnit clicked) => HandleUnitEntryClicked(clicked);
+
+        void BeginTargeting(AbilityDefinition ability)
+        {
+            pendingAbility = ability;
+
+            switch (ability.TargetType)
+            {
+                case TargetType.SingleEnemy:
+                    awaitingTarget = true;
+                    SetPrompt($"{currentActor.Name}: Select A Target");
+                    foreach (var enemy in CombatTargeting.GetLivingEnemies(currentActor, state))
+                    {
+                        unitEntries[enemy].SetTargetable(true);
+                        combatStage?.SetTargetable(enemy, true);
+                    }
+                    break;
+                case TargetType.AllEnemies:
+                    ConfirmAction(ability, CombatTargeting.GetLivingEnemies(currentActor, state));
+                    break;
+                case TargetType.AllAllies:
+                    ConfirmAction(ability, CombatTargeting.GetLivingAllies(currentActor, state));
+                    break;
+                case TargetType.Self:
+                    ConfirmAction(ability, new List<CombatUnit> { currentActor });
+                    break;
+            }
+        }
+
+        void ClearTargetableState()
+        {
+            foreach (var kv in unitEntries)
+                kv.Value.SetTargetable(false);
+            combatStage?.ClearAllTargetable();
+        }
 
         public void Bind(CombatState combatState, PlayerDecisionProvider attacker, PlayerDecisionProvider defender)
         {
@@ -153,43 +194,6 @@ namespace Combat.View
             BeginTargeting(currentActor.Kit.Ultimate);
         }
 
-        // Routes to the right targeting flow based on the ability's
-        // TargetType. Single-target abilities wait for a click; AoE/Self
-        // abilities resolve their target list immediately and submit.
-        void BeginTargeting(AbilityDefinition ability)
-        {
-            pendingAbility = ability;
-
-            switch (ability.TargetType)
-            {
-                case TargetType.SingleEnemy:
-                    awaitingTarget = true;
-                    SetPrompt($"{currentActor.Name}: Select a Target");
-                    foreach (var enemy in CombatTargeting.GetLivingEnemies(currentActor, state))
-                        unitEntries[enemy].SetTargetable(true);
-                    break;
-
-                case TargetType.SingleAlly:
-                    awaitingTarget = true;
-                    SetPrompt($"{currentActor.Name}: Select an Ally");
-                    foreach (var ally in CombatTargeting.GetLivingAllies(currentActor, state))
-                        unitEntries[ally].SetTargetable(true);
-                    break;
-
-                case TargetType.AllEnemies:
-                    ConfirmAction(ability, CombatTargeting.GetLivingEnemies(currentActor, state));
-                    break;
-
-                case TargetType.AllAllies:
-                    ConfirmAction(ability, CombatTargeting.GetLivingAllies(currentActor, state));
-                    break;
-
-                case TargetType.Self:
-                    ConfirmAction(ability, new List<CombatUnit> { currentActor });
-                    break;
-            }
-        }
-
         void HandleUnitEntryClicked(CombatUnit clicked)
         {
             if (!awaitingTarget || pendingAbility == null || clicked.IsDefeated) return;
@@ -281,12 +285,6 @@ namespace Combat.View
 
             if (spLabel != null)
                 spLabel.text = $"SP: {sp.Current}/{SkillPointPool.Max}";
-        }
-
-        void ClearTargetableState()
-        {
-            foreach (var kv in unitEntries)
-                kv.Value.SetTargetable(false);
         }
 
         void SetActionUIVisible(bool visible)
