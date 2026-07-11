@@ -8,7 +8,7 @@ namespace Combat.View
     // Spawns and animates a single floating combat-text popup (damage, heal,
     // reaction name). Self-destructs after playing - callers fire-and-forget,
     // same pattern as CombatUnitActor's hit reactions.
-    public class DamangeNumberPopup : MonoBehaviour
+    public class DamageNumberPopup : MonoBehaviour
     {
         const float Duration = 0.9f;
         const float RiseHeight = 0.8f;
@@ -27,7 +27,7 @@ namespace Combat.View
             tmp.fontStyle = FontStyles.Bold;
             if (tmp.font == null) tmp.font = TMP_Settings.defaultFontAsset;
 
-            go.AddComponent<DamangeNumberPopup>().StartCoroutine(PlayAndDestroy(go.transform, tmp));
+            go.AddComponent<DamageNumberPopup>().StartCoroutine(PlayAndDestroy(go.transform, tmp));
         }
 
         static IEnumerator PlayAndDestroy(Transform t, TextMeshPro tmp)
