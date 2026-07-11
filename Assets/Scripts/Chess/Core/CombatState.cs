@@ -36,6 +36,7 @@ namespace Combat.Core
         public event Action<CombatUnit, CombatUnit, int> OnHealDealt;
         public event Action<CombatUnit> OnUnitDefeated;
         public event Action<CombatOutcome> OnCombatEnd;
+        public event Action<CombatUnit, CombatUnit, ReactionType> OnReactionTriggered;
 
         public void Setup(
             List<CombatUnit> attackers,
@@ -80,6 +81,13 @@ namespace Combat.Core
                     continue;
                 }
 
+                TickStartOfTurnEffects(actor);
+                AnnounceNewlyDefeated();
+                CheckForWinner();
+                if (Outcome != CombatOutcome.None) return;
+
+                if (actor.IsDefeated) continue; // DoT finished them before they could act
+
                 break;
             }
 
@@ -87,6 +95,30 @@ namespace Combat.Core
 
             var provider = GetProviderFor(actor);
             provider.RequestAction(actor, this, action => ResolveAction(actor, action));
+        }
+
+        // DoT ticks and aura decay happen right as a unit's own turn comes up -
+        // same timing convention IsFrozen already used, so "duration in turns"
+        // means "this many of the tagged/afflicted unit's own turns."
+        void TickStartOfTurnEffects(CombatUnit actor)
+        {
+            for (int i = actor.ActiveDots.Count - 1; i >= 0; i--)
+            {
+                var dot = actor.ActiveDots[i];
+                actor.TakeDamage(dot.DamagePerTick);
+                OnDamageDealt?.Invoke(dot.Source, actor, dot.DamagePerTick);
+
+                dot.RemainingTicks--;
+                if (dot.RemainingTicks <= 0)
+                    actor.ActiveDots.RemoveAt(i);
+            }
+
+            if (actor.ActiveTag != null)
+            {
+                actor.ActiveTag.RemainingTurns--;
+                if (actor.ActiveTag.RemainingTurns <= 0)
+                    actor.ActiveTag = null;
+            }
         }
 
         ICombatDecisionProvider GetProviderFor(CombatUnit actor) =>
@@ -122,6 +154,7 @@ namespace Combat.Core
         // events themselves are only invocable from within CombatState.
         public void RaiseDamageDealt(CombatUnit source, CombatUnit target, int amount) => OnDamageDealt?.Invoke(source, target, amount);
         public void RaiseHealDealt(CombatUnit source, CombatUnit target, int amount) => OnHealDealt?.Invoke(source, target, amount);
+        public void RaiseReactionTriggered(CombatUnit source, CombatUnit target, ReactionType reaction) => OnReactionTriggered?.Invoke(source, target, reaction);
 
         void AnnounceNewlyDefeated()
         {

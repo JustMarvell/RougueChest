@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Combat.Core;
+using UnityEngine;
 
 namespace Chess.Core
 {
@@ -36,6 +38,10 @@ namespace Chess.Core
 
         public bool IsFrozen;
 
+        public ElementTag ActiveTag;
+        public readonly List<DotInstance> ActiveDots = new List<DotInstance>();
+        public int Shield;
+
         public bool IsDefeated => CurrentHP <= 0;
 
         public CombatUnit(string name, CombatTeam team, int maxHp, int attack, int speed)
@@ -50,6 +56,13 @@ namespace Chess.Core
 
         public void TakeDamage(int amount)
         {
+            if (Shield > 0)
+            {
+                int absorbed = Mathf.Min(Shield, amount);
+                Shield -= absorbed;
+                amount -= absorbed;
+            }
+
             CurrentHP -= amount;
             if (CurrentHP < 0) CurrentHP = 0;
         }
@@ -73,6 +86,7 @@ namespace Chess.Core
             clone.Energy = Energy;
             clone.MaxEnergy = MaxEnergy;
             clone.Kit = Kit;
+            clone.Shield = Shield;
             return clone;
         }
     }

@@ -98,6 +98,7 @@ namespace Combat.View
             state.OnHealDealt += HandleHealDealt;
             state.OnUnitDefeated += HandleUnitDefeated;
             state.OnCombatEnd += HandleCombatEnd;
+            state.OnReactionTriggered += HandleReactionTriggered;
 
             attackerProvider.OnDecisionNeeded += HandleDecisionNeeded;
             defenderProvider.OnDecisionNeeded += HandleDecisionNeeded;
@@ -250,6 +251,11 @@ namespace Combat.View
         {
             SetActionUIVisible(false);
             SetPrompt(outcome == CombatOutcome.AttackerWon ? "Attacker Wins!" : "Defender Wins!");
+        }
+
+        void HandleReactionTriggered(CombatUnit source, CombatUnit target, ReactionType reaction)
+        {
+            SetPrompt($"{reaction}! {target.Name} reacted to {source.Name}'s attack");
         }
 
         // ---- UI helpers ----

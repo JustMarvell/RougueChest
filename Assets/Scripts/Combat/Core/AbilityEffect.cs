@@ -96,4 +96,32 @@ namespace Combat.Core
             }
         }
     }
+
+    [Serializable]
+    public class ElementalDamageEffect : AbilityEffect
+    {
+        public float  AttackMultiplier = 1.0f;
+        public ElementType Element;
+
+        public override void Apply(CombatUnit caster, List<CombatUnit> targets, CombatState state)
+        {
+            foreach (var target in targets)
+            {
+                if (target == null || target.IsDefeated) continue;
+
+                var outcome = ElementalReactionResolver.Resolve(target, Element);
+                float multiplier = AttackMultiplier * ElementalReactionResolver.GetDamageMultiplier(outcome.Type);
+
+                int dmg = Mathf.RoundToInt(caster.Attack * multiplier);
+                target.TakeDamage(dmg);
+                state.RaiseDamageDealt(caster, target, dmg);
+
+                if (outcome.Type != ReactionType.None)
+                    state.RaiseReactionTriggered(caster, target, outcome.Type);
+
+                ElementalReactionResolver.ApplyReactionEffects(caster, target, outcome.Type, state);
+                ElementalReactionResolver.ApplyOrRefreshTag(target, Element, outcome);
+            }
+        }
+    }
 }
