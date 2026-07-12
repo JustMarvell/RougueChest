@@ -162,6 +162,7 @@ GameObject:
   - component: {fileID: 48928637}
   - component: {fileID: 48928636}
   - component: {fileID: 48928639}
+  - component: {fileID: 48928640}
   m_Layer: 0
   m_Name: CombatStage
   m_TagString: Untagged
@@ -255,6 +256,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Combat.View.CombatStageInputHandler
   combatView: {fileID: 52968247}
   raycastCamera: {fileID: 0}
+--- !u!114 &48928640
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 48928635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f25608ccd2e348f8fa07a7cbe4cd5189, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Combat.View.DamageNumberSpawner
+  stage: {fileID: 48928636}
 --- !u!1 &52968246
 GameObject:
   m_ObjectHideFlags: 0
@@ -4782,6 +4796,7 @@ MonoBehaviour:
   combatView: {fileID: 52968247}
   combatStage: {fileID: 48928636}
   cameraController: {fileID: 330585548}
+  damageNumberSpawner: {fileID: 48928640}
   turnIndicator: {fileID: 331815269}
   selectedPieceIndicator: {fileID: 163248763}
 --- !u!4 &1643385889
