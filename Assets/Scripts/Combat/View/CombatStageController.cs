@@ -99,5 +99,12 @@ namespace Combat.View
             foreach (var kv in actors)
                 kv.Value.SetTargetable(false);
         }
+
+        public Vector3? GetActorPosition(CombatUnit unit)
+        {
+            if (actors.TryGetValue(unit, out var actor) && actor != null)
+                return actor.transform.position;
+            return null;
+        }
     }
 }
