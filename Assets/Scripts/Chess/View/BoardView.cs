@@ -24,6 +24,7 @@ namespace Chess.View
         public CombatView combatView;
         public CombatStageController combatStage;
         public CombatCameraController cameraController;
+        public DamageNumberSpawner damageNumberSpawner;
 
         [Space]
 
@@ -113,6 +114,7 @@ namespace Chess.View
             {
                 combatView.gameObject.SetActive(false);
                 combatStage?.Unbind();
+                damageNumberSpawner?.Unbind();
                 State.ResolveCapture(attackerWon);
                 RedrawPieces();
                 UpdateTurnUI();
@@ -121,6 +123,7 @@ namespace Chess.View
             });
 
             combatStage?.Bind(combat);
+            damageNumberSpawner?.Bind(combat);
 
             if (cameraController != null)
                 cameraController.EnterCombatView(() => combat.Begin());
